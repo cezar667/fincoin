@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Contas a Receber | FinSight{% endblock %}
+{% block content %}
+<section class="mb-3 rounded-2xl bg-white p-4 shadow-sm">
+  <h1 class="text-lg font-semibold">Contas a receber</h1>
+  <p class="text-sm text-slate-500">Baixa de recebimentos, fila de cobranca e visao de inadimplencia.</p>
+</section>
+
+{% include "business_control/_submenu.html" %}
+
+{% if flash %}
+<section class="mb-3 rounded-2xl p-3 text-sm {% if flash.kind == 'ok' %}bg-emerald-50 text-emerald-700{% else %}bg-rose-50 text-rose-700{% endif %}">
+  {{ flash.message }}
+</section>
+{% endif %}
+
+{% if active_business %}
+<section class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Em aberto</p>
+    <p class="mt-2 text-2xl font-semibold">{{ open_receivable_count }}</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Vencidos</p>
+    <p class="mt-2 text-2xl font-semibold text-rose-700">{{ overdue_receivable_count }}</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Pagos</p>
+    <p class="mt-2 text-2xl font-semibold text-emerald-700">{{ paid_receivable_count }}</p>
+  </article>
+</section>
+
+<section class="space-y-3">
+  <h2 class="text-base font-semibold text-slate-900">Titulos emitidos</h2>
+  {% if receivables %}
+    {% for receivable in receivables %}
+    <article class="rounded-2xl bg-white p-4 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="text-sm font-semibold">{{ receivable.description }}</p>
+            <span class="rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] {% if receivable.status.value == 'PAID' %}bg-emerald-100 text-emerald-700{% elif receivable.status.value == 'OVERDUE' %}bg-rose-100 text-rose-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+              {{ receivable_status_labels[receivable.status.value] }}
+            </span>
+          </div>
+          <p class="mt-1 text-xs text-slate-500">{{ receivable.member.full_name }} · Competencia {{ receivable.competency_month.strftime('%m/%Y') }}</p>
+          <p class="mt-1 text-sm text-slate-600">Vencimento {{ receivable.due_on.strftime('%d/%m/%Y') }} · Valor {{ receivable.amount_cents | brl }}</p>
+        </div>
+        {% if receivable.status.value != 'PAID' and receivable.status.value != 'CANCELED' and receivable.status.value != 'REFUNDED' %}
+        <details>
+          <summary class="cursor-pointer rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">Registrar recebimento</summary>
+          <form method="post" action="/app/business-control/receivables/{{ receivable.id }}/receive" class="mt-2 w-[320px] space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <input type="date" name="received_on" value="{{ today.isoformat() }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+            <input type="number" name="amount_received" step="0.01" value="{{ '%.2f' | format(receivable_balance_map[receivable.id] / 100) }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+            <select name="method" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+              {% for item in receipt_methods %}
+              <option value="{{ item.value }}">{{ item.label }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="note" placeholder="Observacao" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+            <button type="submit" class="w-full rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white">Confirmar baixa</button>
+          </form>
+        </details>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  {% else %}
+  <article class="rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-sm">Nenhum titulo emitido.</article>
+  {% endif %}
+</section>
+{% else %}
+<article class="rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-sm">Crie um business primeiro.</article>
+{% endif %}
+{% endblock %}

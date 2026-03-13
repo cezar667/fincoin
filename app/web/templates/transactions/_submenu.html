@@ -1,0 +1,25 @@
+<nav class="mb-4 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+  <div class="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-7">
+    <a href="/app/transactions" class="rounded-xl px-3 py-2 text-sm font-semibold transition {% if transactions_subpage == 'transactions' %}bg-emerald-100 text-emerald-700{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+      Lancamentos
+    </a>
+    <a href="/app/transactions/accounts" class="rounded-xl px-3 py-2 text-sm font-semibold transition {% if transactions_subpage == 'accounts' %}bg-emerald-100 text-emerald-700{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+      Contas
+    </a>
+    <a href="/app/transactions/categories" class="rounded-xl px-3 py-2 text-sm font-semibold transition {% if transactions_subpage == 'categories' %}bg-emerald-100 text-emerald-700{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+      Categorias
+    </a>
+    <a href="/app/transactions/cards" class="rounded-xl px-3 py-2 text-sm font-semibold transition {% if transactions_subpage == 'cards' %}bg-emerald-100 text-emerald-700{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+      Cartoes
+    </a>
+    <a href="/app/transactions/installments" class="rounded-xl px-3 py-2 text-sm font-semibold transition {% if transactions_subpage == 'installments' %}bg-emerald-100 text-emerald-700{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+      Parcelamentos
+    </a>
+    <a href="/app/transactions/recurrences" class="rounded-xl px-3 py-2 text-sm font-semibold transition {% if transactions_subpage == 'recurrences' %}bg-emerald-100 text-emerald-700{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+      Recorrencias
+    </a>
+    <a href="/app/import" class="rounded-xl px-3 py-2 text-sm font-semibold transition {% if transactions_subpage == 'import' %}bg-emerald-100 text-emerald-700{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+      Importacao CSV
+    </a>
+  </div>
+</nav>

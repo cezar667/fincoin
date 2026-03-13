@@ -1,0 +1,157 @@
+﻿{% extends "base.html" %}
+{% block title %}Lancamentos | FinSight{% endblock %}
+{% block content %}
+<section class="mb-3 rounded-2xl bg-white p-4 shadow-sm">
+  <h1 class="text-lg font-semibold">Lancamentos</h1>
+  <p class="text-sm text-slate-500">Planejamento: {{ current_plan_name }} | Gestao completa de receitas e despesas.</p>
+</section>
+
+{% include "transactions/_submenu.html" %}
+
+{% if flash %}
+<section class="mb-3 rounded-2xl p-3 text-sm {% if flash.kind == 'ok' %}bg-emerald-50 text-emerald-700{% else %}bg-rose-50 text-rose-700{% endif %}">
+  {{ flash.message }}
+</section>
+{% endif %}
+
+<section class="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+  <form method="get" action="/app/transactions" class="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_1fr_auto]">
+    <label class="block">
+      <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Competencia</span>
+      <input type="month" name="month" value="{{ selected_month.strftime('%Y-%m') }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Filtro por tipo</span>
+      <select name="direction" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+        <option value="" {% if not selected_direction %}selected{% endif %}>Todos</option>
+        {% for item in transaction_directions %}
+        <option value="{{ item.value }}" {% if selected_direction == item.value %}selected{% endif %}>{{ item.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white lg:self-end">Aplicar filtros</button>
+  </form>
+</section>
+
+<section class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs text-slate-500">Entradas</p>
+    <p class="mt-1 text-xl font-semibold text-emerald-700">{{ income_total | brl }}</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs text-slate-500">Saidas</p>
+    <p class="mt-1 text-xl font-semibold text-rose-700">{{ expense_total | brl }}</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs text-slate-500">Resultado</p>
+    <p class="mt-1 text-xl font-semibold {% if net_total >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ net_total | brl }}</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs text-slate-500">Lancamentos</p>
+    <p class="mt-1 text-xl font-semibold text-slate-900">{{ transaction_count }}</p>
+  </article>
+</section>
+
+<section class="mb-4 rounded-2xl bg-white p-4 shadow-sm" id="novo-lancamento">
+  <h2 class="mb-3 text-base font-semibold">Novo lancamento</h2>
+  {% if accounts and categories %}
+  <form method="post" action="/app/transactions/new" class="grid grid-cols-1 gap-2 lg:grid-cols-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <input type="text" name="description" placeholder="Descricao" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm lg:col-span-2" />
+    <select name="direction" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+      {% for item in transaction_directions %}
+      <option value="{{ item.value }}">{{ item.label }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="amount" required placeholder="Valor (ex: 125,50)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <select name="account_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+      {% for account in accounts %}
+      <option value="{{ account.id }}">{{ account.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="category_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+      {% for category in categories %}
+      <option value="{{ category.id }}">{{ category.name }} ({{ category_kind_labels[category.kind.value] }})</option>
+      {% endfor %}
+    </select>
+    <input type="date" name="occurred_on" value="{{ today.strftime('%Y-%m-%d') }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <input type="month" name="competency_month" value="{{ selected_month.strftime('%Y-%m') }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 lg:col-span-2">
+      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+        <input type="checkbox" name="is_monthly_recurring" value="1" class="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500" />
+        Transformar em recorrencia mensal
+      </label>
+      <label class="mt-2 block text-xs font-medium uppercase tracking-wide text-slate-500">Mes final opcional</label>
+      <input type="month" name="recurring_end_month" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    </div>
+    <button type="submit" class="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white lg:col-span-2">Salvar lancamento</button>
+  </form>
+  {% else %}
+  <p class="text-sm text-slate-500">Cadastre ao menos uma conta e categoria para comecar.</p>
+  {% endif %}
+</section>
+
+<section class="space-y-3">
+  <h2 class="text-base font-semibold text-slate-900">Movimentacoes do periodo</h2>
+  {% if transactions %}
+    {% for item in transactions %}
+    <article class="rounded-2xl bg-white p-4 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p class="text-sm font-semibold">{{ item.description or "Sem descricao" }}</p>
+          <p class="mt-1 text-xs text-slate-500">
+            {{ transaction_direction_labels[item.direction.value] }}
+            | {{ item.occurred_on.strftime('%d/%m/%Y') }}
+            | {{ account_name_map.get(item.account_id, '-') }}
+            | {{ category_name_map.get(item.category_id, '-') }}
+          </p>
+        </div>
+        <div class="text-right">
+          <p class="text-sm font-semibold {% if item.direction.value == direction_income_value %}text-emerald-700{% else %}text-rose-700{% endif %}">
+            {% if item.direction.value == direction_income_value %}+{% else %}-{% endif %}{{ item.amount_cents | brl }}
+          </p>
+          <div class="mt-2 flex items-center justify-end gap-2">
+            <details>
+              <summary class="cursor-pointer rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">Editar</summary>
+              <form method="post" action="/app/transactions/{{ item.id }}/edit" class="mt-2 w-[330px] space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-left">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                <input type="text" name="description" value="{{ item.description or '' }}" placeholder="Descricao" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                <div class="grid grid-cols-2 gap-2">
+                  <select name="direction" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                    {% for opt in transaction_directions %}
+                    <option value="{{ opt.value }}" {% if opt.value == item.direction.value %}selected{% endif %}>{{ opt.label }}</option>
+                    {% endfor %}
+                  </select>
+                  <input type="text" name="amount" value="{{ '%.2f' % (item.amount_cents / 100) }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                </div>
+                <select name="account_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                  {% for account in accounts %}
+                  <option value="{{ account.id }}" {% if account.id == item.account_id %}selected{% endif %}>{{ account.name }}</option>
+                  {% endfor %}
+                </select>
+                <select name="category_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                  {% for category in categories %}
+                  <option value="{{ category.id }}" {% if category.id == item.category_id %}selected{% endif %}>{{ category.name }} ({{ category_kind_labels[category.kind.value] }})</option>
+                  {% endfor %}
+                </select>
+                <div class="grid grid-cols-2 gap-2">
+                  <input type="date" name="occurred_on" value="{{ item.occurred_on.strftime('%Y-%m-%d') }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                  <input type="month" name="competency_month" value="{{ item.competency_month.strftime('%Y-%m') }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                </div>
+                <button type="submit" class="w-full rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white">Salvar edicao</button>
+              </form>
+            </details>
+            <form method="post" action="/app/transactions/{{ item.id }}/delete" onsubmit="return confirm('Deseja excluir este lancamento?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+              <button type="submit" class="rounded-lg border border-rose-300 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50">Excluir</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  {% else %}
+  <article class="rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-sm">Nenhum lancamento encontrado para os filtros atuais.</article>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,96 @@
+﻿{% extends "base.html" %}
+{% block title %}Parcelamentos | FinSight{% endblock %}
+{% block content %}
+<section class="mb-3 rounded-2xl bg-white p-4 shadow-sm">
+  <h1 class="text-lg font-semibold">Parcelamentos</h1>
+  <p class="text-sm text-slate-500">Planejamento: {{ current_plan_name }} | Gestao completa de compras parceladas.</p>
+</section>
+
+{% include "transactions/_submenu.html" %}
+
+{% if flash %}
+<section class="mb-3 rounded-2xl p-3 text-sm {% if flash.kind == 'ok' %}bg-emerald-50 text-emerald-700{% else %}bg-rose-50 text-rose-700{% endif %}">
+  {{ flash.message }}
+</section>
+{% endif %}
+
+<section class="mb-4 rounded-2xl bg-white p-4 shadow-sm" id="parcelamentos">
+  <h2 class="mb-3 text-base font-semibold">Novo parcelamento</h2>
+  {% if cards and expense_categories %}
+  <form method="post" action="/app/installments" class="grid grid-cols-1 gap-2 lg:grid-cols-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <input type="text" name="description" placeholder="Descricao" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm lg:col-span-2" />
+    <select name="credit_card_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+      {% for card in cards %}
+      <option value="{{ card.id }}">{{ card.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="category_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+      {% for category in expense_categories %}
+      <option value="{{ category.id }}">{{ category.name }}</option>
+      {% endfor %}
+    </select>
+    <input type="number" min="1" name="total_parts" required placeholder="Numero de parcelas" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <input type="text" name="part_amount" required placeholder="Valor por parcela (ex: 49,90)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <input type="month" name="first_competency_month" value="{{ selected_month.strftime('%Y-%m') }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <button type="submit" class="rounded-xl bg-amber-600 px-3 py-2 text-sm font-semibold text-white">Salvar parcelamento</button>
+  </form>
+  {% else %}
+  <p class="text-sm text-slate-500">Crie um cartao e uma categoria de despesa para cadastrar parcelamentos.</p>
+  {% endif %}
+</section>
+
+<section class="space-y-3">
+  <h2 class="text-base font-semibold text-slate-900">Parcelamentos cadastrados</h2>
+  {% if installments %}
+    {% for item in installments %}
+    <article class="rounded-2xl bg-white p-4 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p class="text-sm font-semibold">{{ item.description or "Sem descricao" }}</p>
+          <p class="text-xs text-slate-500">
+            {{ item.total_parts }}x de {{ item.part_amount_cents | brl }}
+            | inicio {{ item.first_competency_month.strftime('%m/%Y') }}
+            | cartao {{ card_name_map.get(item.credit_card_id, '-') }}
+            | categoria {{ category_name_map.get(item.category_id, '-') }}
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <details>
+            <summary class="cursor-pointer rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">Editar</summary>
+            <form method="post" action="/app/installments/{{ item.id }}/update" class="mt-2 w-[340px] space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+              <input type="text" name="description" value="{{ item.description or '' }}" placeholder="Descricao" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+              <div class="grid grid-cols-2 gap-2">
+                <select name="credit_card_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                  {% for card in cards %}
+                  <option value="{{ card.id }}" {% if card.id == item.credit_card_id %}selected{% endif %}>{{ card.name }}</option>
+                  {% endfor %}
+                </select>
+                <select name="category_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                  {% for category in expense_categories %}
+                  <option value="{{ category.id }}" {% if category.id == item.category_id %}selected{% endif %}>{{ category.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <input type="number" min="1" name="total_parts" value="{{ item.total_parts }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                <input type="text" name="part_amount" value="{{ '%.2f' % (item.part_amount_cents / 100) }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+              </div>
+              <input type="month" name="first_competency_month" value="{{ item.first_competency_month.strftime('%Y-%m') }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+              <button type="submit" class="w-full rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white">Salvar</button>
+            </form>
+          </details>
+          <form method="post" action="/app/installments/{{ item.id }}/delete" onsubmit="return confirm('Deseja excluir este parcelamento?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <button type="submit" class="rounded-lg border border-rose-300 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50">Excluir</button>
+          </form>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  {% else %}
+  <article class="rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-sm">Nenhum parcelamento cadastrado.</article>
+  {% endif %}
+</section>
+{% endblock %}

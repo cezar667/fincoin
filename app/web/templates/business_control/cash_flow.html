@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Fluxo de Caixa | FinSight{% endblock %}
+{% block content %}
+<section class="mb-3 rounded-2xl bg-white p-4 shadow-sm">
+  <h1 class="text-lg font-semibold">Fluxo de caixa empresarial</h1>
+  <p class="text-sm text-slate-500">
+    Lance entradas e saidas, vincule gastos ao credito captado e acompanhe o saldo real da empresa.
+  </p>
+</section>
+
+{% include "business_control/_submenu.html" %}
+
+{% if flash %}
+<section class="mb-3 rounded-2xl p-3 text-sm {% if flash.kind == 'ok' %}bg-emerald-50 text-emerald-700{% else %}bg-rose-50 text-rose-700{% endif %}">
+  {{ flash.message }}
+</section>
+{% endif %}
+
+{% if active_business and dashboard %}
+<section class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Caixa atual</p>
+    <p class="mt-2 text-2xl font-semibold">{{ dashboard.current_cash_cents | brl }}</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Entradas no mes</p>
+    <p class="mt-2 text-2xl font-semibold text-emerald-700">{{ dashboard.inflows_this_month_cents | brl }}</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Saidas no mes</p>
+    <p class="mt-2 text-2xl font-semibold text-rose-700">{{ dashboard.outflows_this_month_cents | brl }}</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Capital preservado</p>
+    <p class="mt-2 text-2xl font-semibold text-slate-900">{{ dashboard.capital_preserved_cents | brl }}</p>
+  </article>
+</section>
+
+<section class="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+  <h2 class="mb-3 text-base font-semibold">Novo lancamento</h2>
+  <form method="post" action="/app/business-control/cash-flow" class="grid grid-cols-1 gap-2 xl:grid-cols-[1.1fr_0.8fr_0.8fr_1fr_1fr]">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <select name="business_account_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required>
+      {% for account in accounts %}
+      <option value="{{ account.id }}">{{ account.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="activity_type" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+      {% for item in business_cash_activity_types %}
+      <option value="{{ item.value }}">{{ item.label }}</option>
+      {% endfor %}
+    </select>
+    <select name="direction" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+      {% for item in transaction_directions %}
+      <option value="{{ item.value }}" {% if item.value == 'EXPENSE' %}selected{% endif %}>{{ item.label }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="description" required placeholder="Ex.: Compra de material, trafego pago, aporte" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <input type="number" name="amount" step="0.01" min="0.01" value="0.00" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <select name="business_category_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+      <option value="">Sem categoria</option>
+      {% for category in categories if category.is_active %}
+      <option value="{{ category.id }}">{{ category.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="cost_center_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+      <option value="">Sem centro de custo</option>
+      {% for cost_center in cost_centers if cost_center.is_active %}
+      <option value="{{ cost_center.id }}">{{ cost_center.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="funding_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+      <option value="">Nao vincular a um credito</option>
+      {% for funding in fundings %}
+      <option value="{{ funding.id }}">{{ funding.name }}</option>
+      {% endfor %}
+    </select>
+    <input type="date" name="occurred_on" value="{{ today.isoformat() }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <input type="text" name="notes" placeholder="Observacao opcional" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:col-span-4" />
+    <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Registrar</button>
+  </form>
+</section>
+
+<section class="grid grid-cols-1 gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Posicao por conta</p>
+        <h2 class="mt-1 text-base font-semibold">Saldo das contas empresariais</h2>
+      </div>
+    </div>
+    <div class="mt-4 space-y-3">
+      {% for position in dashboard.account_positions %}
+      <article class="rounded-2xl border border-slate-200 p-3">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p class="text-sm font-semibold text-slate-900">{{ position.account.name }}</p>
+            <p class="text-xs text-slate-500">{{ business_account_type_labels[position.account.type.value] }}</p>
+          </div>
+          <p class="text-sm font-semibold text-slate-900">{{ position.current_balance_cents | brl }}</p>
+        </div>
+        <p class="mt-1 text-xs {% if position.net_movement_cents >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">
+          Movimento acumulado {{ position.net_movement_cents | brl }}
+        </p>
+      </article>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Extrato empresarial</p>
+        <h2 class="mt-1 text-base font-semibold">Lancamentos recentes</h2>
+      </div>
+    </div>
+    <div class="mt-4 space-y-3">
+      {% for entry in cash_entries %}
+      <article class="rounded-2xl border border-slate-200 p-3">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="text-sm font-semibold text-slate-900">{{ entry.description }}</p>
+              <span class="rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] {% if entry.direction.value == 'INCOME' %}bg-emerald-100 text-emerald-700{% else %}bg-rose-100 text-rose-700{% endif %}">
+                {{ transaction_direction_labels[entry.direction.value] }}
+              </span>
+              <span class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                {{ business_cash_activity_type_labels[entry.activity_type.value] }}
+              </span>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">
+              {{ entry.occurred_on.strftime('%d/%m/%Y') }} · {{ entry.account.name }}
+              {% if entry.category %} · {{ entry.category.name }}{% endif %}
+              {% if entry.cost_center %} · {{ entry.cost_center.name }}{% endif %}
+            </p>
+            {% if entry.funding %}
+            <p class="mt-1 text-xs text-amber-700">Vinculado ao credito {{ entry.funding.name }}</p>
+            {% endif %}
+          </div>
+          <p class="text-sm font-semibold {% if entry.direction.value == 'INCOME' %}text-emerald-700{% else %}text-rose-700{% endif %}">
+            {% if entry.direction.value == 'INCOME' %}+{% else %}-{% endif %}{{ entry.amount_cents | brl }}
+          </p>
+        </div>
+        {% if entry.notes %}
+        <p class="mt-2 text-xs text-slate-500">{{ entry.notes }}</p>
+        {% endif %}
+      </article>
+      {% else %}
+      <article class="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+        Nenhum lancamento de caixa registrado ainda.
+      </article>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% else %}
+<article class="rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-sm">
+  Crie um business primeiro para registrar o fluxo de caixa.
+</article>
+{% endif %}
+{% endblock %}

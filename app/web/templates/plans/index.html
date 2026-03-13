@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Planejamentos | FinSight{% endblock %}
+{% block content %}
+<section class="mb-3 rounded-2xl bg-white p-4 shadow-sm">
+  <h1 class="text-lg font-semibold">Planejamentos Financeiros</h1>
+  <p class="text-sm text-slate-500">Comece criando um planejamento e depois entre para gerenciar transacoes, forecast e rotina financeira.</p>
+</section>
+
+{% if flash %}
+<section class="mb-3 rounded-2xl p-3 text-sm {% if flash.kind == 'ok' %}bg-emerald-50 text-emerald-700{% else %}bg-rose-50 text-rose-700{% endif %}">
+  {{ flash.message }}
+</section>
+{% endif %}
+
+<section class="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+  <h2 class="mb-3 text-base font-semibold">Novo planejamento</h2>
+  <form method="post" action="/app/plans" class="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_1fr_auto]">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <input type="text" name="name" required placeholder="Nome do planejamento" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <input type="text" name="description" placeholder="Descricao curta (opcional)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <button type="submit" class="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white">Criar e abrir</button>
+  </form>
+</section>
+
+<section class="space-y-3">
+  <h2 class="text-base font-semibold text-slate-900">Planejamentos criados</h2>
+  {% if plans %}
+    {% for plan in plans %}
+    <article class="rounded-2xl bg-white p-4 shadow-sm {% if active_plan_id and plan.id == active_plan_id %}ring-2 ring-emerald-300{% endif %}">
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p class="text-sm font-semibold">{{ plan.name }}</p>
+          <p class="text-xs text-slate-500">{{ plan.description or "Sem descricao" }}</p>
+          <p class="mt-1 text-xs text-slate-400">Criado em {{ plan.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+        </div>
+        {% if active_plan_id and plan.id == active_plan_id %}
+        <span class="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">Ativo</span>
+        {% endif %}
+      </div>
+
+      <div class="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-[auto_1fr_auto]">
+        <form method="post" action="/app/plans/{{ plan.id }}/activate">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <button type="submit" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Abrir planejamento</button>
+        </form>
+
+        <form method="post" action="/app/plans/{{ plan.id }}/update" class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <input type="text" name="name" value="{{ plan.name }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+          <input type="text" name="description" value="{{ plan.description or '' }}" placeholder="Descricao" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+          <button type="submit" class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white sm:col-span-2">Salvar alteracoes</button>
+        </form>
+
+        <form method="post" action="/app/plans/{{ plan.id }}/delete" onsubmit="return confirm('Deseja remover este planejamento e todos os dados dele?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <button type="submit" class="w-full rounded-xl border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50">Excluir</button>
+        </form>
+      </div>
+    </article>
+    {% endfor %}
+  {% else %}
+  <article class="rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-sm">Nenhum planejamento criado ainda.</article>
+  {% endif %}
+</section>
+{% endblock %}

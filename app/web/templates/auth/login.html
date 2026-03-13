@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Entrar | FinSight{% endblock %}
+{% block content %}
+<section class="mx-auto mt-8 max-w-md rounded-2xl bg-white p-6 shadow-sm">
+  <h1 class="mb-4 text-2xl font-semibold">Entrar</h1>
+  {% if error %}
+  <div class="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ error }}</div>
+  {% endif %}
+  <form method="post" action="/login" class="space-y-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <input type="email" name="email" required placeholder="E-mail" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <input type="password" name="password" required placeholder="Senha" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <button type="submit" class="w-full rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Entrar</button>
+  </form>
+</section>
+{% endblock %}
+

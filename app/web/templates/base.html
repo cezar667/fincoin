@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}FinSight{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}?v={{ request.state.css_version | default('1') }}" />
+  </head>
+  <body class="app-shell-body min-h-screen text-slate-900 antialiased">
+    {% if request.session.get("user_id") %}
+    {% set current_path = request.url.path %}
+    {% set section_label = "Planejamentos" %}
+    {% if active_page == "dashboard" %}
+    {% set section_label = "Painel de Controle" %}
+    {% elif active_page == "business_control" %}
+    {% set section_label = "Business Control" %}
+    {% elif active_page == "transactions" %}
+    {% set section_label = "Transacoes" %}
+    {% elif active_page == "forecast" %}
+    {% set section_label = "Radar Futuro" %}
+    {% endif %}
+    {% set header_context_name = current_business_name or current_plan_name %}
+    {% set primary_action_href = primary_action_href | default('/app/transactions#novo-lancamento') %}
+    {% set primary_action_label = primary_action_label | default('+ Novo') %}
+
+    <input id="sidebar-toggle" type="checkbox" class="peer hidden" />
+
+    <div class="min-h-screen lg:grid lg:grid-cols-[304px_minmax(0,1fr)]">
+      <label
+        for="sidebar-toggle"
+        class="fixed inset-0 z-30 hidden bg-slate-950/55 backdrop-blur-sm peer-checked:block lg:hidden"
+      ></label>
+
+      <aside
+        class="sidebar-surface fixed inset-y-0 left-0 z-40 flex w-[86%] max-w-[304px] -translate-x-full flex-col overflow-x-hidden overflow-y-auto border-r border-white/10 px-4 pb-4 pt-5 text-slate-100 transition-transform duration-300 peer-checked:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:rounded-r-[28px]"
+      >
+        <a href="/app/dashboard" class="soft-card rounded-2xl border border-white/10 bg-white/[0.08] p-4 transition hover:bg-white/[0.12]">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400/30 to-cyan-300/30 text-base font-bold tracking-wide text-emerald-100">FS</span>
+            <div>
+              <p class="text-[11px] uppercase tracking-[0.24em] text-cyan-100/70">FinSight</p>
+              <h1 class="text-base font-semibold text-white">Gestao Financeira</h1>
+            </div>
+          </div>
+          <p class="mt-3 text-xs text-slate-200/80">Controle completo de planejamento, transacoes e previsao de caixa.</p>
+        </a>
+
+        <nav class="mt-6 space-y-2">
+          <p class="px-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300/50">Navegacao</p>
+
+          <a href="/app/plans" class="group flex items-start gap-3 rounded-xl border px-3 py-3 transition {% if active_page == 'plans' %}border-emerald-200/30 bg-emerald-200/15 text-white{% else %}border-transparent text-slate-200/90 hover:border-white/10 hover:bg-white/5{% endif %}">
+            <span class="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-emerald-100">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 6h16M4 12h16M4 18h10" />
+              </svg>
+            </span>
+            <span class="min-w-0">
+              <span class="block text-sm font-semibold">Planejamentos</span>
+              <span class="block text-xs text-slate-300/80">Crie, ative e revise cenarios</span>
+            </span>
+          </a>
+
+          <a href="/app/dashboard" class="group flex items-start gap-3 rounded-xl border px-3 py-3 transition {% if active_page == 'dashboard' %}border-emerald-200/30 bg-emerald-200/15 text-white{% else %}border-transparent text-slate-200/90 hover:border-white/10 hover:bg-white/5{% endif %}">
+            <span class="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-emerald-100">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 13h8V3H3zM13 21h8V11h-8zM13 3v4h8V3zM3 21v-4h8v4z" />
+              </svg>
+            </span>
+            <span class="min-w-0">
+              <span class="block text-sm font-semibold">Painel</span>
+              <span class="block text-xs text-slate-300/80">Indicadores e visao do periodo</span>
+            </span>
+          </a>
+
+          <a href="/app/business-control" class="group flex items-start gap-3 rounded-xl border px-3 py-3 transition {% if active_page == 'business_control' %}border-emerald-200/30 bg-emerald-200/15 text-white{% else %}border-transparent text-slate-200/90 hover:border-white/10 hover:bg-white/5{% endif %}">
+            <span class="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-emerald-100">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 6h16v12H4zM8 10h3M8 14h8M15 10h1" />
+              </svg>
+            </span>
+            <span class="min-w-0">
+              <span class="block text-sm font-semibold">Business Control</span>
+              <span class="block text-xs text-slate-300/80">Empresa, caixa e operacao</span>
+            </span>
+          </a>
+
+          <details class="rounded-xl border px-3 py-2 {% if current_path.startswith('/app/transactions') or current_path.startswith('/app/import') %}border-emerald-200/30 bg-emerald-200/10 text-white{% else %}border-transparent text-slate-200/90 hover:border-white/10 hover:bg-white/5{% endif %}" {% if current_path.startswith('/app/transactions') or current_path.startswith('/app/import') %}open{% endif %}>
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-2">
+              <span class="flex items-center gap-3">
+                <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-emerald-100">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 7h16M4 12h16M4 17h10" />
+                  </svg>
+                </span>
+                <span>
+                  <span class="block text-sm font-semibold">Transacoes</span>
+                  <span class="block text-xs text-slate-300/80">Lancamentos e cadastros</span>
+                </span>
+              </span>
+              <svg class="h-4 w-4 text-slate-300/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </summary>
+            <div class="mt-2 space-y-1 pl-11 text-sm">
+              <a href="/app/transactions" class="block rounded-lg px-2 py-1.5 transition {% if current_path == '/app/transactions' %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Lancamentos</a>
+              <a href="/app/transactions/accounts" class="block rounded-lg px-2 py-1.5 transition {% if current_path == '/app/transactions/accounts' %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Contas</a>
+              <a href="/app/transactions/categories" class="block rounded-lg px-2 py-1.5 transition {% if current_path == '/app/transactions/categories' %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Categorias</a>
+              <a href="/app/transactions/cards" class="block rounded-lg px-2 py-1.5 transition {% if current_path == '/app/transactions/cards' %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Cartoes</a>
+              <a href="/app/transactions/installments" class="block rounded-lg px-2 py-1.5 transition {% if current_path == '/app/transactions/installments' %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Parcelamentos</a>
+              <a href="/app/transactions/recurrences" class="block rounded-lg px-2 py-1.5 transition {% if current_path == '/app/transactions/recurrences' %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Recorrencias</a>
+              <a href="/app/import" class="block rounded-lg px-2 py-1.5 transition {% if current_path.startswith('/app/import') %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Importar CSV</a>
+            </div>
+          </details>
+
+          <a href="/app/forecast" class="group flex items-start gap-3 rounded-xl border px-3 py-3 transition {% if active_page == 'forecast' %}border-emerald-200/30 bg-emerald-200/15 text-white{% else %}border-transparent text-slate-200/90 hover:border-white/10 hover:bg-white/5{% endif %}">
+            <span class="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-emerald-100">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19h16M6 16l4-4 3 3 5-7" />
+              </svg>
+            </span>
+            <span class="min-w-0">
+              <span class="block text-sm font-semibold">Radar Futuro</span>
+              <span class="block text-xs text-slate-300/80">Projecao com semaforo</span>
+            </span>
+          </a>
+        </nav>
+
+        {% if current_business_name %}
+        <div class="mt-5 rounded-xl border border-white/10 bg-white/[0.07] p-3">
+          <p class="text-[11px] uppercase tracking-[0.18em] text-slate-300/55">Business ativo</p>
+          <p class="mt-2 rounded-lg border border-emerald-200/30 bg-emerald-200/10 px-3 py-2 text-sm font-semibold text-emerald-100">{{ current_business_name }}</p>
+          <a href="/app/business-control/businesses" class="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10">
+            Gerenciar businesses
+          </a>
+        </div>
+        {% endif %}
+
+        <div class="mt-3 rounded-xl border border-white/10 bg-white/[0.07] p-3">
+          <p class="text-[11px] uppercase tracking-[0.18em] text-slate-300/55">Plano ativo</p>
+          {% if current_plan_name %}
+          <p class="mt-2 rounded-lg border border-emerald-200/30 bg-emerald-200/10 px-3 py-2 text-sm font-semibold text-emerald-100">{{ current_plan_name }}</p>
+          {% else %}
+          <p class="mt-2 text-xs text-slate-300/75">Nenhum planejamento selecionado.</p>
+          {% endif %}
+          <a href="/app/plans" class="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10">
+            Gerenciar planejamentos
+          </a>
+        </div>
+
+        <div class="mt-3 rounded-xl border border-white/10 bg-white/[0.07] p-3">
+          <p class="text-[11px] uppercase tracking-[0.18em] text-slate-300/55">Atalhos</p>
+          <div class="mt-2 grid grid-cols-2 gap-2 text-xs">
+            {% if active_page == "business_control" %}
+            <a href="/app/business-control/members" class="rounded-lg border border-white/10 px-2 py-2 text-center font-semibold text-slate-100 transition hover:bg-white/10">Associado</a>
+            <a href="/app/business-control/subscriptions" class="rounded-lg border border-white/10 px-2 py-2 text-center font-semibold text-slate-100 transition hover:bg-white/10">Assinatura</a>
+            {% else %}
+            <a href="/app/transactions#novo-lancamento" class="rounded-lg border border-white/10 px-2 py-2 text-center font-semibold text-slate-100 transition hover:bg-white/10">Novo lancamento</a>
+            <a href="/app/transactions/installments" class="rounded-lg border border-white/10 px-2 py-2 text-center font-semibold text-slate-100 transition hover:bg-white/10">Parcelamento</a>
+            {% endif %}
+          </div>
+        </div>
+
+        <form action="/logout" method="post" class="mt-auto pt-4">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <button type="submit" class="w-full rounded-xl border border-white/20 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10">
+            Encerrar sessao
+          </button>
+        </form>
+      </aside>
+
+      <div class="flex min-h-screen flex-col">
+        <header class="glass-topbar sticky top-0 z-20 border-b border-slate-200/70 px-4 py-3 lg:px-8">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <label for="sidebar-toggle" class="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50 lg:hidden">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 6h18M3 12h18M3 18h18" />
+                </svg>
+              </label>
+              <div>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Workspace</p>
+                <h2 class="text-sm font-semibold text-slate-900">{{ section_label }}</h2>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              {% if header_context_name %}
+              <span class="hidden rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 sm:inline-flex">{{ header_context_name }}</span>
+              {% endif %}
+              <a href="{{ primary_action_href }}" class="inline-flex items-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800">{{ primary_action_label }}</a>
+            </div>
+          </div>
+        </header>
+
+        <main class="page-enter flex-1 px-4 py-5 lg:px-8 lg:py-8">
+    {% else %}
+    <main class="mx-auto min-h-screen max-w-5xl px-4 py-8">
+    {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+    {% if request.session.get("user_id") %}
+      </div>
+    </div>
+
+    <details class="fixed bottom-5 right-5 z-50">
+      <summary class="soft-card flex cursor-pointer list-none items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:shadow-lg">
+        <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-lg leading-none text-white">+</span>
+        <span>Novo</span>
+      </summary>
+      <div class="soft-card absolute bottom-16 right-0 w-72 space-y-2 rounded-2xl border border-slate-200 bg-white p-3">
+        <p class="px-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Adicionar</p>
+        {% if active_page == "business_control" %}
+        <a href="/app/business-control/members" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Novo associado</a>
+        <a href="/app/business-control/membership-plans" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Novo plano</a>
+        <a href="/app/business-control/subscriptions" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Nova assinatura</a>
+        <a href="/app/business-control/receivables" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Contas a receber</a>
+        {% else %}
+        <a href="/app/transactions#novo-lancamento" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Novo lancamento</a>
+        <a href="/app/transactions/installments" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Novo parcelamento</a>
+        <a href="/app/transactions/recurrences" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Nova recorrencia</a>
+        <a href="/app/plans" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Trocar planejamento</a>
+        {% endif %}
+      </div>
+    </details>
+    {% endif %}
+  </body>
+</html>

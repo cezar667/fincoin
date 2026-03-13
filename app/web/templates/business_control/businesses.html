@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Businesses | FinSight{% endblock %}
+{% block content %}
+<section class="mb-3 rounded-2xl bg-white p-4 shadow-sm">
+  <h1 class="text-lg font-semibold">Businesses</h1>
+  <p class="text-sm text-slate-500">
+    Cadastre empresas separadas da vida pessoal e defina qual business esta ativo no modulo empresarial.
+  </p>
+</section>
+
+{% include "business_control/_submenu.html" %}
+
+{% if flash %}
+<section class="mb-3 rounded-2xl p-3 text-sm {% if flash.kind == 'ok' %}bg-emerald-50 text-emerald-700{% else %}bg-rose-50 text-rose-700{% endif %}">
+  {{ flash.message }}
+</section>
+{% endif %}
+
+<section class="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+  <h2 class="mb-3 text-base font-semibold">Novo business</h2>
+  <form method="post" action="/app/business-control/businesses" class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <label class="block">
+      <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Nome</span>
+      <input type="text" name="name" required placeholder="Soomei" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Slug</span>
+      <input type="text" name="slug" required placeholder="soomei" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    </label>
+    <label class="block lg:col-span-2">
+      <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Razao social</span>
+      <input type="text" name="legal_name" placeholder="Soomei Tecnologia Ltda" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    </label>
+    <label class="block lg:col-span-2">
+      <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Descricao</span>
+      <textarea name="description" rows="3" placeholder="Associados, recorrencia, cartoes NFC e operacao financeira." class="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm"></textarea>
+    </label>
+    <label class="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 lg:col-span-2">
+      <input type="checkbox" name="seed_template" value="SOOMEI" checked class="h-4 w-4 rounded border-slate-300 text-emerald-700" />
+      <span class="text-sm text-emerald-800">Aplicar estrutura inicial da Soomei: contas, categorias, centros de custo e planos.</span>
+    </label>
+    <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white lg:w-fit">Criar business</button>
+  </form>
+</section>
+
+<section class="space-y-3">
+  <h2 class="text-base font-semibold text-slate-900">Businesses cadastrados</h2>
+  {% if businesses %}
+    {% for business in businesses %}
+    <article class="rounded-2xl bg-white p-4 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="text-sm font-semibold">{{ business.name }}</p>
+            {% if active_business and active_business.id == business.id %}
+            <span class="rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Ativo</span>
+            {% endif %}
+            {% if not business.is_active %}
+            <span class="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Arquivado</span>
+            {% endif %}
+          </div>
+          <p class="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">{{ business.slug }}</p>
+          {% if business.legal_name %}
+          <p class="mt-2 text-sm text-slate-600">{{ business.legal_name }}</p>
+          {% endif %}
+          {% if business.description %}
+          <p class="mt-1 text-sm text-slate-500">{{ business.description }}</p>
+          {% endif %}
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <form method="post" action="/app/business-control/businesses/{{ business.id }}/switch">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Usar neste modulo</button>
+          </form>
+          <form method="post" action="/app/business-control/businesses/{{ business.id }}/toggle">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <input type="hidden" name="is_active" value="{{ 'false' if business.is_active else 'true' }}" />
+            <button type="submit" class="rounded-lg border px-3 py-2 text-xs font-semibold {% if business.is_active %}border-amber-300 text-amber-700 hover:bg-amber-50{% else %}border-emerald-300 text-emerald-700 hover:bg-emerald-50{% endif %}">
+              {% if business.is_active %}Arquivar{% else %}Reativar{% endif %}
+            </button>
+          </form>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  {% else %}
+  <article class="rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-sm">Nenhum business cadastrado ainda.</article>
+  {% endif %}
+</section>
+{% endblock %}

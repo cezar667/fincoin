@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+{% block title %}Business Control | FinSight{% endblock %}
+{% block content %}
+<section class="bc-hero mb-4 overflow-hidden rounded-[28px] px-5 py-6 text-slate-50 shadow-sm lg:px-7">
+  <div class="relative z-10 flex flex-wrap items-start justify-between gap-4">
+    <div class="max-w-2xl">
+      <p class="text-[11px] uppercase tracking-[0.28em] text-cyan-100/70">Business Control</p>
+      <h1 class="mt-2 text-2xl font-semibold text-white">Caixa, capital e jornada da Soomei em um painel so</h1>
+      <p class="mt-3 text-sm leading-6 text-slate-200/88">
+        O modulo agora mostra quanto do credito ainda esta preservado, onde o caixa esta sendo consumido
+        e como a operacao comercial esta convertendo em recebimento real.
+      </p>
+    </div>
+    {% if active_business %}
+    <div class="rounded-[24px] border border-white/15 bg-white/10 px-4 py-3 text-sm text-cyan-50 backdrop-blur">
+      <p class="font-semibold">{{ active_business.name }}</p>
+      <p class="text-xs uppercase tracking-[0.18em] text-cyan-100/75">{{ active_business.slug }}</p>
+    </div>
+    {% endif %}
+  </div>
+  <div class="bc-orb bc-orb-one"></div>
+  <div class="bc-orb bc-orb-two"></div>
+</section>
+
+{% include "business_control/_submenu.html" %}
+
+{% if flash %}
+<section class="mb-3 rounded-2xl p-3 text-sm {% if flash.kind == 'ok' %}bg-emerald-50 text-emerald-700{% else %}bg-rose-50 text-rose-700{% endif %}">
+  {{ flash.message }}
+</section>
+{% endif %}
+
+{% if active_business and dashboard %}
+<section class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Caixa atual</p>
+    <p class="mt-2 text-2xl font-semibold text-slate-900">{{ dashboard.current_cash_cents | brl }}</p>
+    <p class="text-xs text-slate-500">{{ dashboard.account_positions | length }} contas acompanhadas</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Entradas do mes</p>
+    <p class="mt-2 text-2xl font-semibold text-emerald-700">{{ dashboard.inflows_this_month_cents | brl }}</p>
+    <p class="text-xs text-slate-500">receitas, aportes e creditos reconhecidos</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Saidas do mes</p>
+    <p class="mt-2 text-2xl font-semibold text-rose-700">{{ dashboard.outflows_this_month_cents | brl }}</p>
+    <p class="text-xs text-slate-500">operacao, investimento e parcelas</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Saldo liquido do mes</p>
+    <p class="mt-2 text-2xl font-semibold {% if dashboard.net_cash_this_month_cents >= 0 %}text-slate-900{% else %}text-rose-700{% endif %}">
+      {{ dashboard.net_cash_this_month_cents | brl }}
+    </p>
+    <p class="text-xs text-slate-500">resultado direto do fluxo de caixa corrente</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Capital captado</p>
+    <p class="mt-2 text-2xl font-semibold text-slate-900">{{ dashboard.total_financing_cents | brl }}</p>
+    <p class="text-xs text-slate-500">{{ dashboard.funding_snapshots | length }} financiamento(s) recentes no radar</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Parcelas em 30 dias</p>
+    <p class="mt-2 text-2xl font-semibold text-amber-700">{{ dashboard.financing_due_next_30_days_cents | brl }}</p>
+    <p class="text-xs text-slate-500">{{ dashboard.upcoming_installments | length }} compromissos abertos no curto prazo</p>
+  </article>
+</section>
+
+<section class="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_1fr]">
+  <article class="rounded-[28px] bg-white p-5 shadow-sm">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <p class="text-[11px] uppercase tracking-[0.24em] text-slate-500">Fluxo visual</p>
+        <h2 class="mt-1 text-lg font-semibold">Trilha do capital</h2>
+      </div>
+      <a href="/app/business-control/fundings" class="text-xs font-semibold text-slate-500 hover:text-slate-900">Abrir financiamentos</a>
+    </div>
+    <div class="journey-board mt-5">
+      {% for stage in dashboard.cash_journey_stages %}
+      <article class="journey-step journey-tone-{{ stage.tone }}">
+        <span class="journey-pulse"></span>
+        <p class="journey-eyebrow">{{ stage.title }}</p>
+        <p class="journey-count">{{ stage.metric_text }}</p>
+        <p class="journey-caption">{{ stage.caption }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="rounded-[28px] bg-white p-5 shadow-sm">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <p class="text-[11px] uppercase tracking-[0.24em] text-slate-500">Mapa mental</p>
+        <h2 class="mt-1 text-lg font-semibold">Motor financeiro da empresa</h2>
+      </div>
+      <span class="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">Fase 3</span>
+    </div>
+    <div class="mind-map-shell mt-5">
+      <div class="mind-map-core">
+        <p class="text-[11px] uppercase tracking-[0.22em] text-cyan-100/70">Core</p>
+        <p class="mt-2 text-lg font-semibold text-white">Fluxo de caixa</p>
+      </div>
+      {% for node in dashboard.capital_map_nodes %}
+      <article class="mind-map-node mind-tone-{{ node.tone }}">
+        <p class="mind-map-title">{{ node.title }}</p>
+        <p class="mind-map-metric">{{ node.metric_text }}</p>
+        <p class="mind-map-caption">{{ node.caption }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr_1fr]">
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Posicao de caixa</p>
+        <h2 class="mt-1 text-base font-semibold">Contas e movimentacoes</h2>
+      </div>
+      <a href="/app/business-control/cash-flow" class="text-xs font-semibold text-slate-500 hover:text-slate-900">Lancar</a>
+    </div>
+    <div class="mt-4 space-y-3">
+      {% for position in dashboard.account_positions[:4] %}
+      <article class="rounded-2xl border border-slate-200 p-3">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <p class="text-sm font-semibold text-slate-900">{{ position.account.name }}</p>
+            <p class="text-xs text-slate-500">{{ business_account_type_labels[position.account.type.value] }}</p>
+          </div>
+          {% if not position.account.is_active %}
+          <span class="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Inativa</span>
+          {% endif %}
+        </div>
+        <p class="mt-2 text-sm font-semibold text-slate-900">{{ position.current_balance_cents | brl }}</p>
+        <p class="text-xs {% if position.net_movement_cents >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">
+          Movimento acumulado {{ position.net_movement_cents | brl }}
+        </p>
+      </article>
+      {% endfor %}
+      {% if dashboard.recent_cash_entries %}
+      <div class="rounded-2xl border border-dashed border-slate-200 p-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Ultimos lancamentos</p>
+        <div class="mt-3 space-y-2">
+          {% for entry in dashboard.recent_cash_entries[:4] %}
+          <div class="flex items-start justify-between gap-2 text-sm">
+            <div>
+              <p class="font-medium text-slate-900">{{ entry.description }}</p>
+              <p class="text-xs text-slate-500">{{ entry.occurred_on.strftime('%d/%m/%Y') }}{% if entry.category %} · {{ entry.category.name }}{% endif %}</p>
+            </div>
+            <p class="{% if entry.direction.value == 'INCOME' %}text-emerald-700{% else %}text-rose-700{% endif %}">
+              {% if entry.direction.value == 'INCOME' %}+{% else %}-{% endif %}{{ entry.amount_cents | brl }}
+            </p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </article>
+
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Onde o dinheiro foi</p>
+        <h2 class="mt-1 text-base font-semibold">Categorias e centros lideres</h2>
+      </div>
+      <a href="/app/business-control/cash-flow" class="text-xs font-semibold text-slate-500 hover:text-slate-900">Ver detalhes</a>
+    </div>
+    <div class="mt-4 space-y-4">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Categorias</p>
+        <div class="mt-3 space-y-2">
+          {% for item in dashboard.top_spending_categories %}
+          <article class="rounded-2xl border border-slate-200 p-3">
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-sm font-semibold text-slate-900">{{ item.title }}</p>
+              <p class="text-sm font-semibold text-slate-900">{{ item.amount_cents | brl }}</p>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">{{ item.share_percent }}% das saidas registradas</p>
+          </article>
+          {% else %}
+          <article class="rounded-2xl border border-dashed border-slate-200 p-3 text-sm text-slate-500">
+            Nenhuma saida categorizada ainda.
+          </article>
+          {% endfor %}
+        </div>
+      </div>
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Centros de custo</p>
+        <div class="mt-3 space-y-2">
+          {% for item in dashboard.top_spending_cost_centers %}
+          <article class="rounded-2xl border border-slate-200 p-3">
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-sm font-semibold text-slate-900">{{ item.title }}</p>
+              <p class="text-sm font-semibold text-slate-900">{{ item.amount_cents | brl }}</p>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">{{ item.share_percent }}% das saidas registradas</p>
+          </article>
+          {% else %}
+          <article class="rounded-2xl border border-dashed border-slate-200 p-3 text-sm text-slate-500">
+            Nenhum centro de custo foi usado ainda.
+          </article>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Credito e parcelas</p>
+        <h2 class="mt-1 text-base font-semibold">Financiamentos em foco</h2>
+      </div>
+      <a href="/app/business-control/fundings" class="text-xs font-semibold text-slate-500 hover:text-slate-900">Gerenciar</a>
+    </div>
+    <div class="mt-4 space-y-3">
+      {% for snapshot in dashboard.funding_snapshots %}
+      <article class="rounded-2xl border border-slate-200 p-3">
+        <p class="text-sm font-semibold text-slate-900">{{ snapshot.funding.name }}</p>
+        <p class="mt-1 text-xs text-slate-500">
+          {% if snapshot.funding.lender_name %}{{ snapshot.funding.lender_name }} · {% endif %}
+          desembolso {{ snapshot.funding.disbursed_on.strftime('%d/%m/%Y') }}
+        </p>
+        <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
+          <div class="rounded-xl bg-slate-50 p-2">Captado<br><span class="font-semibold text-slate-900">{{ snapshot.funding.principal_cents | brl }}</span></div>
+          <div class="rounded-xl bg-slate-50 p-2">Em aberto<br><span class="font-semibold text-slate-900">{{ snapshot.outstanding_cents | brl }}</span></div>
+          <div class="rounded-xl bg-slate-50 p-2">Ja pago<br><span class="font-semibold text-slate-900">{{ snapshot.paid_cents | brl }}</span></div>
+          <div class="rounded-xl bg-slate-50 p-2">Capital preservado<br><span class="font-semibold text-slate-900">{{ snapshot.preserved_credit_cents | brl }}</span></div>
+        </div>
+        {% if snapshot.next_installment %}
+        <p class="mt-3 text-xs text-amber-700">Proxima parcela: {{ snapshot.next_installment.due_on.strftime('%d/%m/%Y') }} · {{ snapshot.next_installment.amount_due_cents | brl }}</p>
+        {% endif %}
+      </article>
+      {% else %}
+      <article class="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+        Nenhum financiamento cadastrado ainda.
+      </article>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr_0.9fr]">
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Fluxo comercial</p>
+        <h2 class="mt-1 text-base font-semibold">Jornada do associado</h2>
+      </div>
+      <a href="/app/business-control/subscriptions" class="text-xs font-semibold text-slate-500 hover:text-slate-900">Gerenciar</a>
+    </div>
+    <div class="journey-board mt-4">
+      {% for stage in dashboard.journey_stages %}
+      <article class="journey-step journey-tone-{{ stage.tone }}">
+        <span class="journey-pulse"></span>
+        <p class="journey-eyebrow">{{ stage.title }}</p>
+        <p class="journey-count">{{ stage.count }}</p>
+        <p class="journey-caption">{{ stage.caption }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Contas a receber</p>
+        <h2 class="mt-1 text-base font-semibold">Fila de cobranca</h2>
+      </div>
+      <a href="/app/business-control/receivables" class="text-xs font-semibold text-slate-500 hover:text-slate-900">Abrir modulo</a>
+    </div>
+    <div class="mt-4 space-y-3">
+      {% for receivable in dashboard.recent_receivables %}
+      <article class="rounded-2xl border border-slate-200 p-3">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p class="text-sm font-semibold text-slate-900">{{ receivable.description }}</p>
+            <p class="text-xs text-slate-500">Vencimento {{ receivable.due_on.strftime('%d/%m/%Y') }}</p>
+          </div>
+          <span class="rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] {% if receivable.status.value == 'PAID' %}bg-emerald-100 text-emerald-700{% elif receivable.status.value == 'OVERDUE' %}bg-rose-100 text-rose-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+            {{ receivable_status_labels[receivable.status.value] }}
+          </span>
+        </div>
+        <p class="mt-2 text-sm font-semibold text-slate-900">{{ receivable.amount_cents | brl }}</p>
+      </article>
+      {% else %}
+      <article class="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+        Nenhuma cobranca gerada ainda.
+      </article>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Auditoria</p>
+        <h2 class="mt-1 text-base font-semibold">Ultimas acoes</h2>
+      </div>
+    </div>
+    <div class="mt-4 space-y-3">
+      {% for log in dashboard.recent_audits %}
+      <article class="rounded-2xl border border-slate-200 p-3">
+        <p class="text-sm font-semibold text-slate-900">{{ log.summary }}</p>
+        <p class="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">{{ log.action.value }} · {{ log.entity_type }}</p>
+      </article>
+      {% else %}
+      <article class="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+        Nenhum evento auditado ainda.
+      </article>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% else %}
+<section class="rounded-2xl bg-white p-6 shadow-sm">
+  <h2 class="text-base font-semibold">Crie o primeiro business</h2>
+  <p class="mt-2 text-sm text-slate-600">
+    O Business Control so funciona com um business ativo. Use a estrutura inicial da Soomei para comecar com contas,
+    categorias, centros de custo, associados e fluxo de caixa empresarial.
+  </p>
+  <a href="/app/business-control/businesses" class="mt-4 inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Abrir configuracao</a>
+</section>
+{% endif %}
+{% endblock %}

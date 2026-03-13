@@ -1,0 +1,59 @@
+﻿{% extends "base.html" %}
+{% block title %}Painel | FinSight{% endblock %}
+{% block content %}
+<section class="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h1 class="text-lg font-semibold">Painel de Controle</h1>
+      <p class="text-sm text-slate-500">
+        Resumo rapido da sua situacao financeira e tendencia a partir de {{ selected_month.strftime('%m/%Y') }}.
+      </p>
+    </div>
+    <form method="get" action="/app/dashboard" class="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+      <label class="block">
+        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Mes de visualizacao</span>
+        <input
+          type="month"
+          name="month"
+          value="{{ selected_month.strftime('%Y-%m') }}"
+          class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+        />
+      </label>
+      <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white sm:self-end">
+        Aplicar
+      </button>
+    </form>
+  </div>
+</section>
+
+<section class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs text-slate-500">Saldo projetado (6 meses)</p>
+    <p class="mt-1 text-xs text-slate-500">Base inicial: {{ forecast.initial_balance_cents | brl }}</p>
+    <p class="mt-2 text-2xl font-semibold">{{ forecast.lines[-1].cumulative_cents | brl if forecast.lines else "R$ 0,00" }}</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs text-slate-500">Receitas do mes selecionado</p>
+    <p class="mt-2 text-2xl font-semibold text-emerald-700">{{ forecast.lines[0].income_cents | brl if forecast.lines else "R$ 0,00" }}</p>
+  </article>
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
+    <p class="text-xs text-slate-500">Despesas do mes selecionado</p>
+    <p class="mt-2 text-2xl font-semibold text-rose-700">{{ forecast.lines[0].expense_cents | brl if forecast.lines else "R$ 0,00" }}</p>
+  </article>
+</section>
+
+<section class="rounded-2xl bg-white p-4 shadow-sm">
+  <h2 class="mb-4 text-base font-semibold">Evolucao do saldo acumulado</h2>
+  <canvas id="forecastChart" height="100"></canvas>
+</section>
+
+<script>
+  const labels = [{% for line in forecast.lines %}"{{ line.month.strftime('%m/%Y') }}"{% if not loop.last %}, {% endif %}{% endfor %}];
+  const data = [{% for line in forecast.lines %}{{ line.cumulative_cents / 100 }}{% if not loop.last %}, {% endif %}{% endfor %}];
+  new Chart(document.getElementById('forecastChart'), {
+    type: 'line',
+    data: { labels, datasets: [{ data, borderColor: '#047857', tension: 0.35 }] },
+    options: { plugins: { legend: { display: false } } }
+  });
+</script>
+{% endblock %}
