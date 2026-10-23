@@ -20,7 +20,7 @@ class ForecastDTO(BaseModel):
     lines: list[ForecastMonthDTO]
 
 
-class ForecastExpenseItemDTO(BaseModel):
+class ForecastFlowItemDTO(BaseModel):
     month: date
     source_id: UUID
     source_type: str

@@ -78,6 +78,12 @@ def forecast_page(
         months=selected_horizon,
         plan_id=active_plan.id,
     )
+    income_details = repository.build_income_details(
+        user_id=user_id,
+        from_month=selected,
+        months=selected_horizon,
+        plan_id=active_plan.id,
+    )
     total_expenses_cents = sum(line.expense_cents for line in forecast.lines)
     expense_item_count = sum(len(items) for items in expense_details.values())
     lowest_line = (
@@ -98,6 +104,7 @@ def forecast_page(
             "current_plan_name": active_plan.name,
             "active_page": "forecast",
             "csrf_token": get_or_create_csrf_token(request),
+            "income_details": income_details,
             "expense_details": expense_details,
             "total_expenses_cents": total_expenses_cents,
             "expense_item_count": expense_item_count,

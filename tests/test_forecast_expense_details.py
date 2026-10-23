@@ -31,7 +31,7 @@ from app.infrastructure.repositories.transaction_repo import (
 )
 
 
-def test_expense_details_explain_forecast_total_for_each_month() -> None:
+def test_month_details_explain_forecast_and_sort_expenses() -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
     Base.metadata.create_all(bind=engine)
     with Session(engine) as db:
@@ -43,6 +43,15 @@ def test_expense_details_explain_forecast_total_for_each_month() -> None:
         )
         category = Category(
             id=uuid4(), user_id=user.id, name="Casa", kind=CategoryKind.EXPENSE
+        )
+        food_category = Category(
+            id=uuid4(),
+            user_id=user.id,
+            name="Alimentação",
+            kind=CategoryKind.EXPENSE,
+        )
+        income_category = Category(
+            id=uuid4(), user_id=user.id, name="Salário", kind=CategoryKind.INCOME
         )
         card = CreditCard(
             id=uuid4(), user_id=user.id, name="Cartão", closing_day=5, due_day=12
@@ -59,6 +68,28 @@ def test_expense_details_explain_forecast_total_for_each_month() -> None:
             occurred_on=date(2026, 10, 4),
             competency_month=date(2026, 10, 1),
         )
+        food_transaction = Transaction(
+            id=uuid4(),
+            user_id=user.id,
+            account_id=account.id,
+            category_id=food_category.id,
+            description="Mercado",
+            amount_cents=50_00,
+            direction=TransactionDirection.EXPENSE,
+            occurred_on=date(2026, 10, 5),
+            competency_month=date(2026, 10, 1),
+        )
+        income_transaction = Transaction(
+            id=uuid4(),
+            user_id=user.id,
+            account_id=account.id,
+            category_id=income_category.id,
+            description="Bônus",
+            amount_cents=500_00,
+            direction=TransactionDirection.INCOME,
+            occurred_on=date(2026, 10, 2),
+            competency_month=date(2026, 10, 1),
+        )
         recurring = RecurringRule(
             id=uuid4(),
             user_id=user.id,
@@ -69,6 +100,19 @@ def test_expense_details_explain_forecast_total_for_each_month() -> None:
             account_id=account.id,
             cadence=RecurringCadence.MONTHLY,
             day_of_month=10,
+            start_month=date(2026, 10, 1),
+            end_month=None,
+        )
+        income_recurring = RecurringRule(
+            id=uuid4(),
+            user_id=user.id,
+            name="Salário mensal",
+            amount_cents=5_000_00,
+            direction=TransactionDirection.INCOME,
+            category_id=income_category.id,
+            account_id=account.id,
+            cadence=RecurringCadence.MONTHLY,
+            day_of_month=5,
             start_month=date(2026, 10, 1),
             end_month=None,
         )
@@ -107,15 +151,25 @@ def test_expense_details_explain_forecast_total_for_each_month() -> None:
                 user,
                 account,
                 category,
+                food_category,
+                income_category,
                 card,
                 plan,
                 transaction,
+                food_transaction,
+                income_transaction,
                 recurring,
+                income_recurring,
                 installment,
                 debt,
                 debt_plan,
                 PlanTransaction(plan_id=plan.id, transaction_id=transaction.id),
+                PlanTransaction(plan_id=plan.id, transaction_id=food_transaction.id),
+                PlanTransaction(plan_id=plan.id, transaction_id=income_transaction.id),
                 PlanRecurringRule(plan_id=plan.id, recurring_rule_id=recurring.id),
+                PlanRecurringRule(
+                    plan_id=plan.id, recurring_rule_id=income_recurring.id
+                ),
                 PlanInstallment(plan_id=plan.id, installment_id=installment.id),
             ]
         )
@@ -134,6 +188,12 @@ def test_expense_details_explain_forecast_total_for_each_month() -> None:
             months=2,
             plan_id=plan.id,
         )
+        income_details = repository.build_income_details(
+            user_id=user.id,
+            from_month=date(2026, 10, 1),
+            months=2,
+            plan_id=plan.id,
+        )
 
         assert {item.source_type for item in details[date(2026, 10, 1)]} == {
             "TRANSACTION",
@@ -141,8 +201,28 @@ def test_expense_details_explain_forecast_total_for_each_month() -> None:
             "INSTALLMENT",
             "DEBT",
         }
+        october_expenses = details[date(2026, 10, 1)]
+        assert [item.source_type for item in october_expenses] == [
+            "TRANSACTION",
+            "TRANSACTION",
+            "RECURRING",
+            "INSTALLMENT",
+            "DEBT",
+        ]
+        assert [item.category_name for item in october_expenses[:2]] == [
+            "Alimentação",
+            "Casa",
+        ]
+        assert [item.source_type for item in income_details[date(2026, 10, 1)]] == [
+            "TRANSACTION",
+            "RECURRING",
+        ]
         for month in (date(2026, 10, 1), date(2026, 11, 1)):
             assert (
                 sum(item.amount_cents for item in details[month])
                 == flows[month].expense_cents
+            )
+            assert (
+                sum(item.amount_cents for item in income_details[month])
+                == flows[month].income_cents
             )

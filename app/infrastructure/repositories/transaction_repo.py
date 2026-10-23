@@ -1,10 +1,11 @@
 from datetime import date
+from typing import ClassVar
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from app.application.dto.forecast_dto import ForecastExpenseItemDTO
+from app.application.dto.forecast_dto import ForecastFlowItemDTO
 from app.application.dto.transaction_dto import (
     CreateTransactionDTO,
     UpdateTransactionDTO,
@@ -88,6 +89,13 @@ class SQLAlchemyTransactionRepository:
 
 
 class SQLAlchemyForecastRepository:
+    _SOURCE_ORDER: ClassVar[dict[str, int]] = {
+        "TRANSACTION": 0,
+        "RECURRING": 1,
+        "INSTALLMENT": 2,
+        "DEBT": 3,
+    }
+
     def __init__(self, db: Session) -> None:
         self.db = db
 
@@ -131,11 +139,11 @@ class SQLAlchemyForecastRepository:
         from_month: date,
         months: int,
         plan_id: UUID | None = None,
-    ) -> dict[date, list[ForecastExpenseItemDTO]]:
+    ) -> dict[date, list[ForecastFlowItemDTO]]:
         month_list = [
             Month.from_any_date(from_month).add_months(i).value for i in range(months)
         ]
-        details: dict[date, list[ForecastExpenseItemDTO]] = {
+        details: dict[date, list[ForecastFlowItemDTO]] = {
             month: [] for month in month_list
         }
         if not month_list:
@@ -160,7 +168,7 @@ class SQLAlchemyForecastRepository:
             ).where(PlanTransaction.plan_id == plan_id)
         for row, category in self.db.execute(transaction_stmt):
             details[row.competency_month].append(
-                ForecastExpenseItemDTO(
+                ForecastFlowItemDTO(
                     month=row.competency_month,
                     source_id=row.id,
                     source_type="TRANSACTION",
@@ -198,7 +206,7 @@ class SQLAlchemyForecastRepository:
                 ):
                     continue
                 details[month].append(
-                    ForecastExpenseItemDTO(
+                    ForecastFlowItemDTO(
                         month=month,
                         source_id=row.id,
                         source_type="RECURRING",
@@ -232,7 +240,7 @@ class SQLAlchemyForecastRepository:
                 if month not in month_set:
                     continue
                 details[month].append(
-                    ForecastExpenseItemDTO(
+                    ForecastFlowItemDTO(
                         month=month,
                         source_id=row.id,
                         source_type="INSTALLMENT",
@@ -261,7 +269,7 @@ class SQLAlchemyForecastRepository:
                 ):
                     continue
                 details[month].append(
-                    ForecastExpenseItemDTO(
+                    ForecastFlowItemDTO(
                         month=month,
                         source_id=row.id,
                         source_type="DEBT",
@@ -274,11 +282,107 @@ class SQLAlchemyForecastRepository:
                     )
                 )
 
+        self._sort_details(details)
+        return details
+
+    def build_income_details(
+        self,
+        user_id: UUID,
+        from_month: date,
+        months: int,
+        plan_id: UUID | None = None,
+    ) -> dict[date, list[ForecastFlowItemDTO]]:
+        month_list = [
+            Month.from_any_date(from_month).add_months(i).value for i in range(months)
+        ]
+        details: dict[date, list[ForecastFlowItemDTO]] = {
+            month: [] for month in month_list
+        }
+        if not month_list:
+            return details
+        start = month_list[0]
+        end_exclusive = Month.from_any_date(month_list[-1]).add_months(1).value
+
+        transaction_stmt = (
+            select(Transaction, Category)
+            .join(Category, Category.id == Transaction.category_id)
+            .where(
+                Transaction.user_id == user_id,
+                Transaction.direction == TransactionDirection.INCOME,
+                Transaction.competency_month >= start,
+                Transaction.competency_month < end_exclusive,
+            )
+        )
+        if plan_id is not None:
+            transaction_stmt = transaction_stmt.join(
+                PlanTransaction,
+                PlanTransaction.transaction_id == Transaction.id,
+            ).where(PlanTransaction.plan_id == plan_id)
+        for row, category in self.db.execute(transaction_stmt):
+            details[row.competency_month].append(
+                ForecastFlowItemDTO(
+                    month=row.competency_month,
+                    source_id=row.id,
+                    source_type="TRANSACTION",
+                    source_label="Lançamento",
+                    description=row.description or category.name,
+                    category_name=category.name,
+                    detail=f"Recebido em {row.occurred_on.strftime('%d/%m/%Y')}",
+                    amount_cents=row.amount_cents,
+                    edit_url=f"/app/transactions?month={row.competency_month.strftime('%Y-%m')}",
+                )
+            )
+
+        recurring_stmt = (
+            select(RecurringRule, Category)
+            .join(Category, Category.id == RecurringRule.category_id)
+            .where(
+                RecurringRule.user_id == user_id,
+                RecurringRule.direction == TransactionDirection.INCOME,
+                RecurringRule.start_month <= month_list[-1],
+                (
+                    RecurringRule.end_month.is_(None)
+                    | (RecurringRule.end_month >= start)
+                ),
+            )
+        )
+        if plan_id is not None:
+            recurring_stmt = recurring_stmt.join(
+                PlanRecurringRule,
+                PlanRecurringRule.recurring_rule_id == RecurringRule.id,
+            ).where(PlanRecurringRule.plan_id == plan_id)
+        for row, category in self.db.execute(recurring_stmt):
+            for month in month_list:
+                if month < row.start_month or (
+                    row.end_month is not None and month > row.end_month
+                ):
+                    continue
+                details[month].append(
+                    ForecastFlowItemDTO(
+                        month=month,
+                        source_id=row.id,
+                        source_type="RECURRING",
+                        source_label="Recorrência",
+                        description=row.name,
+                        category_name=category.name,
+                        detail=f"Previsto para o dia {row.day_of_month}",
+                        amount_cents=row.amount_cents,
+                        edit_url="/app/transactions/recurrences",
+                    )
+                )
+
+        self._sort_details(details)
+        return details
+
+    def _sort_details(self, details: dict[date, list[ForecastFlowItemDTO]]) -> None:
         for month_items in details.values():
             month_items.sort(
-                key=lambda item: (-item.amount_cents, item.description.lower())
+                key=lambda item: (
+                    self._SOURCE_ORDER.get(item.source_type, 99),
+                    (item.category_name or "Sem categoria").casefold(),
+                    item.description.casefold(),
+                )
             )
-        return details
 
     @staticmethod
     def _add_income(
