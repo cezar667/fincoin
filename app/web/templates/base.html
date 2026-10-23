@@ -27,6 +27,8 @@
     {% set section_label = "Transacoes" %}
     {% elif active_page == "forecast" %}
     {% set section_label = "Radar Futuro" %}
+    {% elif active_page == "prosperity" %}
+    {% set section_label = "Prosperidade Familiar" %}
     {% endif %}
     {% set header_context_name = current_business_name or current_plan_name %}
     {% set primary_action_href = primary_action_href | default('/app/transactions#novo-lancamento') %}
@@ -79,6 +81,13 @@
               <span class="block text-sm font-semibold">Painel</span>
               <span class="block text-xs text-slate-300/80">Indicadores e visao do periodo</span>
             </span>
+          </a>
+
+          <a href="/app/prosperity" class="group flex items-start gap-3 rounded-xl border px-3 py-3 transition {% if active_page == 'prosperity' %}border-emerald-200/30 bg-emerald-200/15 text-white{% else %}border-transparent text-slate-200/90 hover:border-white/10 hover:bg-white/5{% endif %}">
+            <span class="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-300/20 to-emerald-300/20 text-amber-100">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22V8M5 12c0-3 2-5 7-5 0 5-2 7-7 7M19 9c0-3-2-5-7-5 0 5 2 7 7 7"/><path d="M5 22h14"/></svg>
+            </span>
+            <span class="min-w-0"><span class="block text-sm font-semibold">Prosperidade</span><span class="block text-xs text-slate-300/80">Dívidas, metas e novas rendas</span></span>
           </a>
 
           <a href="/app/business-control" class="group flex items-start gap-3 rounded-xl border px-3 py-3 transition {% if active_page == 'business_control' %}border-emerald-200/30 bg-emerald-200/15 text-white{% else %}border-transparent text-slate-200/90 hover:border-white/10 hover:bg-white/5{% endif %}">
@@ -226,6 +235,7 @@
         <a href="/app/transactions#novo-lancamento" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Novo lancamento</a>
         <a href="/app/transactions/installments" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Novo parcelamento</a>
         <a href="/app/transactions/recurrences" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Nova recorrencia</a>
+        <a href="/app/prosperity" class="block rounded-xl border border-transparent bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-200 hover:bg-white">Plano de prosperidade</a>
         <a href="/app/plans" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Trocar planejamento</a>
         {% endif %}
       </div>

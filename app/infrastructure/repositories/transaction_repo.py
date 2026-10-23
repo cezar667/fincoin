@@ -99,8 +99,9 @@ class SQLAlchemyForecastRepository:
         self._aggregate_transactions(user_id, month_list, flow_map, plan_id=plan_id)
         self._aggregate_recurring(user_id, month_list, flow_map, plan_id=plan_id)
         self._aggregate_installments(user_id, month_list, flow_map, plan_id=plan_id)
-        if plan_id is None:
-            self._aggregate_debt_plans(user_id, month_list, flow_map)
+        # Debt commitments affect every scenario until debt plans become
+        # explicitly attachable to a FinancialPlan.
+        self._aggregate_debt_plans(user_id, month_list, flow_map)
         return flow_map
 
     @staticmethod

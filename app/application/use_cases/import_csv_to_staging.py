@@ -5,8 +5,12 @@ from app.application.dto.import_dto import CSVColumnMappingDTO, ImportCSVSummary
 from app.infrastructure.db.models.enums import ImportFileStatus
 from app.infrastructure.db.models.external_transaction import ExternalTransaction
 from app.infrastructure.importers.base import BaseCSVImporter
-from app.infrastructure.repositories.external_tx_repo import SQLAlchemyExternalTransactionRepository
-from app.infrastructure.repositories.import_file_repo import SQLAlchemyImportFileRepository
+from app.infrastructure.repositories.external_tx_repo import (
+    SQLAlchemyExternalTransactionRepository,
+)
+from app.infrastructure.repositories.import_file_repo import (
+    SQLAlchemyImportFileRepository,
+)
 
 
 class ImportCSVToStagingUseCase:
@@ -55,21 +59,33 @@ class ImportCSVToStagingUseCase:
 
         rows = [ExternalTransaction(**item.model_dump()) for item in to_insert]
         inserted_count = self.external_tx_repo.bulk_create(rows)
+        auto_mapped_count = self.external_tx_repo.apply_known_mappings(
+            user_id=user_id,
+            import_file_id=import_file.id,
+        )
 
         summary = ImportCSVSummaryDTO(
             import_file_id=import_file.id,
             total_linhas=parsed.total_linhas,
             importadas=inserted_count,
-            duplicadas=parsed.duplicadas + db_duplicate_count + max(0, len(to_insert) - inserted_count),
+            duplicadas=parsed.duplicadas
+            + db_duplicate_count
+            + max(0, len(to_insert) - inserted_count),
             com_erro=parsed.com_erro,
             errors=parsed.errors,
         )
 
-        # TODO: aplicar import_rules (quando existirem) antes da revisao manual.
         note = (
             f"total={summary.total_linhas}; importadas={summary.importadas}; "
-            f"duplicadas={summary.duplicadas}; erros={summary.com_erro}"
+            f"duplicadas={summary.duplicadas}; erros={summary.com_erro}; "
+            f"mapeadas_automaticamente={auto_mapped_count}"
         )
-        status = ImportFileStatus.REVIEWING if summary.total_linhas > 0 else ImportFileStatus.IMPORTED
-        self.import_file_repo.set_status(import_file=import_file, status=status, note=note)
+        status = (
+            ImportFileStatus.REVIEWING
+            if summary.total_linhas > 0
+            else ImportFileStatus.IMPORTED
+        )
+        self.import_file_repo.set_status(
+            import_file=import_file, status=status, note=note
+        )
         return summary

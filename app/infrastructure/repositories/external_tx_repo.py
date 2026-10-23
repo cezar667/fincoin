@@ -12,7 +12,9 @@ class SQLAlchemyExternalTransactionRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def find_existing_hashes(self, *, user_id: UUID, source: str, hashes: set[str]) -> set[str]:
+    def find_existing_hashes(
+        self, *, user_id: UUID, source: str, hashes: set[str]
+    ) -> set[str]:
         if not hashes:
             return set()
         stmt = select(ExternalTransaction.hash).where(
@@ -37,6 +39,43 @@ class SQLAlchemyExternalTransactionRepository:
         self.db.commit()
         return inserted
 
+    def apply_known_mappings(self, *, user_id: UUID, import_file_id: UUID) -> int:
+        """Reuse the latest mapping for an identical normalized merchant description."""
+        history = list(
+            self.db.scalars(
+                select(ExternalTransaction)
+                .where(
+                    ExternalTransaction.user_id == user_id,
+                    ExternalTransaction.import_file_id != import_file_id,
+                    (
+                        ExternalTransaction.mapped_category_id.is_not(None)
+                        | ExternalTransaction.mapped_account_id.is_not(None)
+                    ),
+                )
+                .order_by(ExternalTransaction.created_at.desc())
+            )
+        )
+        known: dict[str, tuple[UUID | None, UUID | None]] = {}
+        for item in history:
+            known.setdefault(
+                item.normalized_description,
+                (item.mapped_category_id, item.mapped_account_id),
+            )
+        applied = 0
+        current_rows = self.list_by_import_file(
+            user_id=user_id, import_file_id=import_file_id
+        )
+        for item in current_rows:
+            mapping = known.get(item.normalized_description)
+            if mapping is None:
+                continue
+            item.mapped_category_id, item.mapped_account_id = mapping
+            self.db.add(item)
+            applied += 1
+        if applied:
+            self.db.commit()
+        return applied
+
     def list_by_import_file(
         self,
         *,
@@ -47,10 +86,15 @@ class SQLAlchemyExternalTransactionRepository:
         stmt = self._base_import_stmt(user_id=user_id, import_file_id=import_file_id)
         if status is not None:
             stmt = stmt.where(ExternalTransaction.review_status == status)
-        stmt = stmt.order_by(ExternalTransaction.normalized_date.asc(), ExternalTransaction.created_at.asc())
+        stmt = stmt.order_by(
+            ExternalTransaction.normalized_date.asc(),
+            ExternalTransaction.created_at.asc(),
+        )
         return list(self.db.scalars(stmt))
 
-    def count_by_review_status(self, *, user_id: UUID, import_file_id: UUID) -> dict[str, int]:
+    def count_by_review_status(
+        self, *, user_id: UUID, import_file_id: UUID
+    ) -> dict[str, int]:
         counts = {item.value: 0 for item in ExternalTransactionReviewStatus}
         stmt = (
             select(ExternalTransaction.review_status, func.count())
@@ -64,7 +108,9 @@ class SQLAlchemyExternalTransactionRepository:
             counts[status.value] = int(amount)
         return counts
 
-    def get_for_user(self, *, external_tx_id: UUID, user_id: UUID) -> ExternalTransaction | None:
+    def get_for_user(
+        self, *, external_tx_id: UUID, user_id: UUID
+    ) -> ExternalTransaction | None:
         return self.db.scalar(
             select(ExternalTransaction).where(
                 ExternalTransaction.id == external_tx_id,
@@ -79,11 +125,24 @@ class SQLAlchemyExternalTransactionRepository:
         category_id: UUID | None,
         account_id: UUID | None,
     ) -> ExternalTransaction:
+        values: dict[str, UUID] = {}
         if category_id is not None:
-            external_tx.mapped_category_id = category_id
+            values["mapped_category_id"] = category_id
         if account_id is not None:
-            external_tx.mapped_account_id = account_id
-        self.db.add(external_tx)
+            values["mapped_account_id"] = account_id
+        if values:
+            self.db.execute(
+                update(ExternalTransaction)
+                .where(
+                    ExternalTransaction.user_id == external_tx.user_id,
+                    ExternalTransaction.import_file_id == external_tx.import_file_id,
+                    ExternalTransaction.normalized_description
+                    == external_tx.normalized_description,
+                    ExternalTransaction.review_status
+                    == ExternalTransactionReviewStatus.PENDING,
+                )
+                .values(**values)
+            )
         self.db.commit()
         self.db.refresh(external_tx)
         return external_tx
@@ -103,18 +162,26 @@ class SQLAlchemyExternalTransactionRepository:
         approve_all: bool,
         approved_ids: list[UUID],
     ) -> list[ExternalTransaction]:
-        allowed = [ExternalTransactionReviewStatus.PENDING, ExternalTransactionReviewStatus.APPROVED]
-        stmt = self._base_import_stmt(user_id=user_id, import_file_id=import_file_id).where(
-            ExternalTransaction.review_status.in_(allowed)
-        )
+        allowed = [
+            ExternalTransactionReviewStatus.PENDING,
+            ExternalTransactionReviewStatus.APPROVED,
+        ]
+        stmt = self._base_import_stmt(
+            user_id=user_id, import_file_id=import_file_id
+        ).where(ExternalTransaction.review_status.in_(allowed))
         if not approve_all:
             if not approved_ids:
                 return []
             stmt = stmt.where(ExternalTransaction.id.in_(approved_ids))
-        stmt = stmt.order_by(ExternalTransaction.normalized_date.asc(), ExternalTransaction.created_at.asc())
+        stmt = stmt.order_by(
+            ExternalTransaction.normalized_date.asc(),
+            ExternalTransaction.created_at.asc(),
+        )
         return list(self.db.scalars(stmt))
 
-    def mark_as_applied(self, *, user_id: UUID, external_tx_ids: list[UUID], commit: bool = True) -> None:
+    def mark_as_applied(
+        self, *, user_id: UUID, external_tx_ids: list[UUID], commit: bool = True
+    ) -> None:
         if not external_tx_ids:
             return
         self.db.execute(
@@ -133,13 +200,18 @@ class SQLAlchemyExternalTransactionRepository:
             ExternalTransaction.user_id == user_id,
             ExternalTransaction.import_file_id == import_file_id,
             ExternalTransaction.review_status.in_(
-                [ExternalTransactionReviewStatus.PENDING, ExternalTransactionReviewStatus.APPROVED]
+                [
+                    ExternalTransactionReviewStatus.PENDING,
+                    ExternalTransactionReviewStatus.APPROVED,
+                ]
             ),
         )
         return int(self.db.scalar(stmt) or 0)
 
     @staticmethod
-    def _base_import_stmt(*, user_id: UUID, import_file_id: UUID) -> Select[tuple[ExternalTransaction]]:
+    def _base_import_stmt(
+        *, user_id: UUID, import_file_id: UUID
+    ) -> Select[tuple[ExternalTransaction]]:
         return select(ExternalTransaction).where(
             ExternalTransaction.user_id == user_id,
             ExternalTransaction.import_file_id == import_file_id,

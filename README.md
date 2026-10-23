@@ -3,6 +3,16 @@
 Base inicial do MVP com FastAPI, SQLAlchemy, Alembic, autenticacao por sessao e forecast.
 Agora inclui as Fases 1 e 2 do modulo `Business Control`, com isolamento multi-business e operacao de associados/assinaturas.
 
+## Prosperidade Familiar
+- Central unica em `GET /app/prosperity` para transformar controle em plano de acao.
+- Inventario de dividas com saldo atual, credor, juros, parcela minima e vencimento.
+- Simulacao comparativa de quitacao por avalanche de juros e bola de neve.
+- Metas financeiras com progresso, aportes, prioridade e data alvo.
+- Laboratorio de novas rendas com potencial mensal, custo, horas e proxima acao.
+- Raio-X de categorias e deteccao de gastos provavelmente recorrentes.
+- Importacoes futuras reaproveitam mapeamentos de descricoes ja categorizadas.
+- Dashboard redesenhado com margem mensal, dividas, metas e proximas acoes.
+
 ## Rodar local
 1. `pip install -e .[dev]`
 2. (Opcional) copie `.env.example` para `.env`
@@ -38,7 +48,8 @@ Agora inclui as Fases 1 e 2 do modulo `Business Control`, com isolamento multi-b
 - Limite de upload no MVP: 5MB por arquivo.
 
 ## Testes
-- Rodar suite completa: `.venv\Scripts\python.exe -m pytest -q`
+- macOS/Linux: `.venv/bin/python -m pytest -q`
+- Windows: `.venv\Scripts\python.exe -m pytest -q`
 - Novos testes da feature:
   - `tests/test_import_utils.py`
   - `tests/test_import_pipeline.py`

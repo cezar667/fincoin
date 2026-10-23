@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Prosperidade Familiar | FinSight{% endblock %}
+{% block content %}
+{% if flash %}
+<div class="mb-5 rounded-2xl border px-4 py-3 text-sm font-semibold {% if flash.kind == 'ok' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-800{% endif %}">{{ flash.message }}</div>
+{% endif %}
+
+<section class="prosperity-hero relative mb-6 overflow-hidden rounded-[30px] p-6 text-white lg:p-9">
+  <div class="relative z-10 max-w-3xl">
+    <p class="text-xs font-bold uppercase tracking-[0.24em] text-emerald-200">Plano de liberdade financeira</p>
+    <h1 class="mt-3 text-3xl font-bold leading-tight lg:text-5xl">Do controle à prosperidade,<br />um passo de cada vez.</h1>
+    <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-200 lg:text-base">Organize o que deve, proteja a família, construa patrimônio e transforme ideias em novas fontes de renda.</p>
+    <div class="mt-6 flex flex-wrap gap-2">
+      <a href="#dividas" class="rounded-xl bg-white px-4 py-2 text-sm font-bold text-slate-900">Organizar dívidas</a>
+      <a href="#metas" class="rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-bold text-white">Criar uma meta</a>
+      <a href="#renda" class="rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-bold text-white">Planejar nova renda</a>
+    </div>
+  </div>
+  <div class="prosperity-orb prosperity-orb-one"></div><div class="prosperity-orb prosperity-orb-two"></div>
+</section>
+
+<section class="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+  <article class="metric-card"><p class="metric-label">Saúde do plano</p><p class="metric-number text-emerald-700">{{ readiness_score }}%</p><div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500" style="width: {{ readiness_score }}%"></div></div></article>
+  <article class="metric-card"><p class="metric-label">Dívida atual</p><p class="metric-number text-rose-700">{{ total_debt_cents | brl }}</p><p class="metric-help">Compromisso mínimo: {{ minimum_commitment_cents | brl }}/mês</p></article>
+  <article class="metric-card"><p class="metric-label">Metas acumuladas</p><p class="metric-number text-sky-700">{{ goal_current_cents | brl }}</p><p class="metric-help">Objetivo total: {{ goal_target_cents | brl }}</p></article>
+  <article class="metric-card"><p class="metric-label">Potencial de renda</p><p class="metric-number text-violet-700">{{ income_potential_cents | brl }}</p><p class="metric-help">Estimativa mensal das ideias</p></article>
+  <article class="metric-card"><p class="metric-label">Próximo foco</p><p class="mt-3 text-base font-bold text-slate-900">{{ next_focus }}</p><p class="metric-help">Ação recomendada agora</p></article>
+</section>
+
+<section class="mb-8 grid gap-4 lg:grid-cols-[1.15fr_.85fr]">
+  <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex items-center justify-between gap-3"><div><p class="eyebrow">Fundação</p><h2 class="mt-1 text-xl font-bold">Checklist de clareza financeira</h2></div><span class="rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white">{{ readiness_score }}%</span></div>
+    <div class="mt-5 grid gap-2 sm:grid-cols-2">
+      {% for label, ready in readiness_items %}<div class="flex items-center gap-3 rounded-2xl border p-3 {% if ready %}border-emerald-100 bg-emerald-50{% else %}border-amber-100 bg-amber-50{% endif %}"><span class="flex h-8 w-8 items-center justify-center rounded-full {% if ready %}bg-emerald-600{% else %}bg-amber-500{% endif %} text-sm font-bold text-white">{% if ready %}✓{% else %}→{% endif %}</span><span class="text-sm font-semibold text-slate-800">{{ label }}</span></div>{% endfor %}
+    </div>
+  </article>
+  <article class="rounded-3xl border border-slate-200 bg-slate-950 p-5 text-white shadow-sm">
+    <p class="eyebrow text-cyan-300">Ritual semanal</p><h2 class="mt-1 text-xl font-bold">20 minutos para manter a calma</h2>
+    <ol class="mt-4 space-y-3 text-sm text-slate-300"><li><b class="text-white">1.</b> Importe e classifique os gastos.</li><li><b class="text-white">2.</b> Atualize os saldos das dívidas.</li><li><b class="text-white">3.</b> Faça o aporte da meta prioritária.</li><li><b class="text-white">4.</b> Execute a próxima ação de renda.</li></ol>
+  </article>
+</section>
+
+<section id="dividas" class="scroll-mt-24 mb-8">
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p class="eyebrow">Liberdade financeira</p><h2 class="text-2xl font-bold">Mapa e estratégia de dívidas</h2><p class="mt-1 text-sm text-slate-500">Compare a economia de juros com o ganho psicológico de eliminar saldos menores.</p></div></div>
+  <div class="grid gap-4 xl:grid-cols-[.78fr_1.22fr]">
+    <details class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm" {% if not debts %}open{% endif %}>
+      <summary class="cursor-pointer text-base font-bold">+ Cadastrar dívida</summary>
+      <form method="post" action="/app/prosperity/debts" class="mt-5 grid gap-3 sm:grid-cols-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        <label class="field-label sm:col-span-2">Nome<input class="field-input" name="name" required placeholder="Ex.: Financiamento do banco" /></label>
+        <label class="field-label">Credor<input class="field-input" name="creditor" placeholder="Banco, Receita Federal..." /></label>
+        <label class="field-label">Tipo<select class="field-input" name="kind">{% for item in debt_kinds %}<option value="{{ item.value }}">{{ item.label }}</option>{% endfor %}</select></label>
+        <label class="field-label">Saldo devedor<input class="field-input" name="current_balance" required placeholder="25.000,00" /></label>
+        <label class="field-label">Parcela mínima<input class="field-input" name="minimum_payment" value="0,00" /></label>
+        <label class="field-label">Juros ao ano (%)<input class="field-input" name="interest_apr" value="0" /></label>
+        <label class="field-label">Dia do vencimento<input class="field-input" type="number" min="1" max="31" name="due_day" /></label>
+        <label class="field-label sm:col-span-2">Observações<textarea class="field-input" rows="2" name="notes" placeholder="Condições, descontos, negociação..."></textarea></label>
+        <button class="primary-button sm:col-span-2">Adicionar ao plano</button>
+      </form>
+    </details>
+    <div class="space-y-3">
+      {% for debt in debts %}
+      <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-3"><div><span class="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-rose-700">{{ debt_kind_labels[debt.kind.value] }}</span><h3 class="mt-2 text-lg font-bold">{{ debt.name }}</h3><p class="text-sm text-slate-500">{{ debt.creditor or 'Credor não informado' }}{% if debt.due_day %} · vence dia {{ debt.due_day }}{% endif %}</p></div><div class="text-right"><p class="text-2xl font-bold text-rose-700">{{ debt.current_balance_cents | brl }}</p><p class="text-xs text-slate-500">{{ (debt.interest_apr_bps or 0) / 100 }}% a.a.</p></div></div>
+        <div class="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-slate-100 pt-4"><p class="text-sm text-slate-600">Mínimo mensal: <b>{{ debt.minimum_payment_cents | brl }}</b></p><form method="post" action="/app/prosperity/debts/{{ debt.id }}/balance" class="flex gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"/><input name="current_balance" class="w-32 rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Novo saldo"/><button class="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Atualizar</button></form></div>
+      </article>
+      {% else %}<div class="empty-state"><p class="text-lg font-bold">Sua jornada começa pelo inventário.</p><p class="mt-1 text-sm text-slate-500">Cadastre todas as dívidas, mesmo as desconfortáveis. Clareza reduz ansiedade e permite decidir.</p></div>{% endfor %}
+    </div>
+  </div>
+
+  {% if debts %}<article class="mt-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <form method="get" action="/app/prosperity#simulacao" class="flex flex-wrap items-end gap-3"><label class="field-label">Valor extra mensal para acelerar<input class="field-input" name="extra_budget" value="{{ '%.2f'|format(extra_budget_cents / 100) }}" /></label><button class="primary-button">Recalcular estratégias</button></form>
+    <div id="simulacao" class="mt-5 grid gap-4 md:grid-cols-2">
+      {% for result, title, tone in [(avalanche, 'Avalanche de juros', 'emerald'), (snowball, 'Bola de neve', 'violet')] %}
+      <div class="rounded-2xl border border-{{ tone }}-100 bg-{{ tone }}-50/60 p-4"><p class="text-xs font-bold uppercase tracking-wider text-{{ tone }}-700">{{ title }}</p><p class="mt-2 text-2xl font-bold">{% if result.debt_free_month %}Livre em {{ result.debt_free_month.strftime('%m/%Y') }}{% else %}Prazo acima de 50 anos{% endif %}</p><p class="mt-1 text-sm text-slate-600">Juros projetados: {{ result.total_interest_cents | brl }}</p><div class="mt-4 space-y-2">{% for line in result.lines %}<div class="flex justify-between rounded-xl bg-white/80 px-3 py-2 text-xs"><span class="font-semibold">{{ line.name }}</span><span>{% if line.payoff_month %}{{ line.payoff_month.strftime('%m/%Y') }}{% else %}sem quitação{% endif %}</span></div>{% endfor %}</div></div>
+      {% endfor %}
+    </div>
+  </article>{% endif %}
+</section>
+
+<section id="metas" class="scroll-mt-24 mb-8"><div class="mb-4"><p class="eyebrow">Construção de patrimônio</p><h2 class="text-2xl font-bold">Metas que dão direção ao dinheiro</h2></div>
+  <div class="grid gap-4 xl:grid-cols-[.78fr_1.22fr]">
+    <details class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm" {% if not goals %}open{% endif %}><summary class="cursor-pointer font-bold">+ Criar meta</summary><form method="post" action="/app/prosperity/goals" class="mt-5 grid gap-3 sm:grid-cols-2"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"/><label class="field-label sm:col-span-2">Nome<input class="field-input" name="name" required placeholder="Reserva de 6 meses"/></label><label class="field-label">Categoria<select class="field-input" name="category">{% for value,label in goal_labels.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label><label class="field-label">Prioridade<select class="field-input" name="priority">{% for p in range(1,6) %}<option value="{{ p }}" {% if p==3 %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></label><label class="field-label">Valor alvo<input class="field-input" name="target" required/></label><label class="field-label">Já acumulado<input class="field-input" name="current" value="0,00"/></label><label class="field-label">Aporte mensal<input class="field-input" name="monthly_contribution" value="0,00"/></label><label class="field-label">Data alvo<input class="field-input" type="date" name="target_date"/></label><button class="primary-button sm:col-span-2">Criar meta</button></form></details>
+    <div class="grid gap-3 sm:grid-cols-2">{% for goal in goals %}{% set progress = ([100, (goal.current_cents * 100 / goal.target_cents)|round]|min) if goal.target_cents else 0 %}<article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex justify-between gap-3"><div><p class="text-xs font-bold uppercase tracking-wider text-sky-700">{{ goal_labels.get(goal.category, goal.category) }}</p><h3 class="mt-1 font-bold">{{ goal.name }}</h3></div><span class="text-sm font-bold">{{ progress|int }}%</span></div><div class="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-gradient-to-r from-sky-500 to-emerald-500" style="width: {{ progress }}%"></div></div><div class="mt-3 flex justify-between text-xs text-slate-500"><span>{{ goal.current_cents|brl }}</span><span>{{ goal.target_cents|brl }}</span></div><form method="post" action="/app/prosperity/goals/{{ goal.id }}/contribute" class="mt-4 flex gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"/><input class="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" name="amount" placeholder="Novo aporte"/><button class="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Aportar</button></form></article>{% else %}<div class="empty-state sm:col-span-2"><p class="font-bold">Transforme desejo em número e data.</p><p class="mt-1 text-sm text-slate-500">Comece pela reserva de emergência ou por uma meta que motive toda a família.</p></div>{% endfor %}</div>
+  </div>
+</section>
+
+<section id="renda" class="scroll-mt-24 mb-8"><div class="mb-4"><p class="eyebrow">Laboratório de renda</p><h2 class="text-2xl font-bold">Ideias que podem virar novos recursos</h2><p class="mt-1 text-sm text-slate-500">Tire ideias da cabeça, defina a próxima ação e acompanhe até a primeira receita.</p></div>
+  <div class="grid gap-4 xl:grid-cols-[.78fr_1.22fr]">
+    <details class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm" {% if not opportunities %}open{% endif %}><summary class="cursor-pointer font-bold">+ Registrar oportunidade</summary><form method="post" action="/app/prosperity/opportunities" class="mt-5 grid gap-3 sm:grid-cols-2"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"/><label class="field-label sm:col-span-2">Ideia<input class="field-input" name="title" required placeholder="Serviço, produto, consultoria..."/></label><label class="field-label sm:col-span-2">Descrição<textarea class="field-input" name="description" rows="2"></textarea></label><label class="field-label">Renda mensal esperada<input class="field-input" name="expected_monthly" value="0,00"/></label><label class="field-label">Custo para começar<input class="field-input" name="setup_cost" value="0,00"/></label><label class="field-label">Horas por semana<input class="field-input" type="number" min="0" name="hours_per_week" value="0"/></label><label class="field-label">Etapa<select class="field-input" name="stage">{% for value,label in stage_labels.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label><label class="field-label sm:col-span-2">Próxima ação<input class="field-input" name="next_action" placeholder="Ex.: conversar com 3 clientes até sexta"/></label><label class="field-label">Data alvo<input class="field-input" type="date" name="target_date"/></label><button class="primary-button sm:col-span-2">Salvar oportunidade</button></form></details>
+    <div class="space-y-3">{% for item in opportunities %}<article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex flex-wrap justify-between gap-3"><div><span class="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-bold uppercase text-violet-700">{{ stage_labels.get(item.stage, item.stage) }}</span><h3 class="mt-2 text-lg font-bold">{{ item.title }}</h3><p class="mt-1 text-sm text-slate-500">{{ item.description or 'Sem descrição' }}</p></div><div class="text-right"><p class="text-xl font-bold text-violet-700">+ {{ item.expected_monthly_cents|brl }}/mês</p><p class="text-xs text-slate-500">{{ item.hours_per_week }}h por semana · custo {{ item.setup_cost_cents|brl }}</p></div></div><div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4"><p class="text-sm"><b>Próxima ação:</b> {{ item.next_action or 'Definir próximo experimento' }}</p><form method="post" action="/app/prosperity/opportunities/{{ item.id }}/stage" class="flex gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"/><select class="rounded-xl border border-slate-300 px-2 py-2 text-xs" name="stage">{% for value,label in stage_labels.items() %}<option value="{{ value }}" {% if item.stage==value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Atualizar</button></form></div></article>{% else %}<div class="empty-state"><p class="font-bold">Prosperidade também é aumentar a capacidade de gerar valor.</p><p class="mt-1 text-sm text-slate-500">Registre uma ideia pequena e transforme-a em um experimento com data e próxima ação.</p></div>{% endfor %}</div>
+  </div>
+</section>
+
+<section id="insights" class="scroll-mt-24"><div class="mb-4"><p class="eyebrow">Raio-X dos últimos 6 meses</p><h2 class="text-2xl font-bold">Onde o dinheiro está criando padrões</h2></div><div class="grid gap-4 lg:grid-cols-2"><article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><h3 class="font-bold">Maiores categorias</h3><div class="mt-4 space-y-3">{% for name,total in top_categories %}<div class="flex items-center justify-between border-b border-slate-100 pb-3 text-sm"><span class="font-semibold">{{ name }}</span><span class="font-bold text-rose-700">{{ total|brl }}</span></div>{% else %}<p class="text-sm text-slate-500">Importe ou registre despesas para revelar seus padrões.</p>{% endfor %}</div></article><article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><h3 class="font-bold">Recorrências prováveis</h3><p class="mt-1 text-xs text-slate-500">Descrições semelhantes presentes em dois ou mais meses.</p><div class="mt-4 space-y-3">{% for item in recurring_candidates %}<div class="flex items-center justify-between border-b border-slate-100 pb-3 text-sm"><div><p class="font-semibold">{{ item.name }}</p><p class="text-xs text-slate-500">{{ item.count }} lançamentos em {{ item.month_count }} meses</p></div><span class="font-bold">~ {{ item.average|brl }}</span></div>{% else %}<p class="text-sm text-slate-500">Ainda não há histórico suficiente para detectar recorrências.</p>{% endfor %}</div></article></div></section>
+{% endblock %}

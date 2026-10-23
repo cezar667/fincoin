@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
@@ -6,22 +6,31 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy import inspect, text
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import inspect, text
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.infrastructure.db import models as _models  # noqa: F401
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.legacy import ensure_sqlite_legacy_business_control_schema
 from app.infrastructure.db.session import engine
 from app.infrastructure.settings.config import get_settings
-from app.web.routers import auth, business_control, dashboard, forecast, imports, plans, themembers, transactions
-
-from app.infrastructure.db import models as _models  # noqa: F401
+from app.web.routers import (
+    auth,
+    business_control,
+    dashboard,
+    forecast,
+    imports,
+    plans,
+    prosperity,
+    themembers,
+    transactions,
+)
 
 
 def brl(cents: int) -> str:
-    amount = Decimal(cents) / Decimal("100")
+    amount = Decimal(cents) / Decimal(100)
     text = f"{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return f"R$ {text}"
 
@@ -95,7 +104,12 @@ def create_app() -> FastAPI:
     async def http_exception_handler(request: Request, exc: HTTPException):
         if request.url.path.startswith("/api"):
             detail = exc.detail if isinstance(exc.detail, str) else "Request error"
-            return problem(request=request, status_code=exc.status_code, title="Request error", detail=detail)
+            return problem(
+                request=request,
+                status_code=exc.status_code,
+                title="Request error",
+                detail=detail,
+            )
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
     @app.exception_handler(RequestValidationError)
@@ -117,11 +131,12 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "time": datetime.now(tz=timezone.utc).isoformat()}
+        return {"status": "ok", "time": datetime.now(tz=UTC).isoformat()}
 
     app.include_router(auth.router)
     app.include_router(plans.router)
     app.include_router(dashboard.router)
+    app.include_router(prosperity.router)
     app.include_router(business_control.router)
     app.include_router(themembers.router)
     app.include_router(transactions.router)

@@ -151,3 +151,45 @@ def test_import_deduplicates_and_apply_marks_applied() -> None:
         assert all(status_item == ExternalTransactionReviewStatus.APPLIED for status_item in final_review_states)
     finally:
         db.close()
+
+
+def test_import_reuses_mapping_for_known_description() -> None:
+    db = _build_session()
+    try:
+        user_row = User(id=uuid4(), email="rules@test.local", password_hash="hash")
+        account_row = Account(id=uuid4(), user_id=user_row.id, name="Conta", type=AccountType.BANK)
+        category_row = Category(id=uuid4(), user_id=user_row.id, name="Transporte", kind=CategoryKind.EXPENSE)
+        db.add_all([user_row, account_row, category_row])
+        db.commit()
+        repo = SQLAlchemyExternalTransactionRepository(db)
+        use_case = ImportCSVToStagingUseCase(
+            importer=CreditCardCSVImporter(),
+            import_file_repo=SQLAlchemyImportFileRepository(db),
+            external_tx_repo=repo,
+        )
+
+        first = use_case.execute(
+            user_id=user_row.id,
+            filename="janeiro.csv",
+            stream=BytesIO(b"date,description,amount\n2026-01-10,Uber Trip,-25.00\n"),
+            card_id=None,
+        )
+        first_row = repo.list_by_import_file(user_id=user_row.id, import_file_id=first.import_file_id)[0]
+        repo.set_mapping(
+            external_tx=first_row,
+            category_id=category_row.id,
+            account_id=account_row.id,
+        )
+
+        second = use_case.execute(
+            user_id=user_row.id,
+            filename="fevereiro.csv",
+            stream=BytesIO(b"date,description,amount\n2026-02-10,Uber Trip,-30.00\n"),
+            card_id=None,
+        )
+        second_row = repo.list_by_import_file(user_id=user_row.id, import_file_id=second.import_file_id)[0]
+
+        assert second_row.mapped_category_id == category_row.id
+        assert second_row.mapped_account_id == account_row.id
+    finally:
+        db.close()

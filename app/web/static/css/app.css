@@ -34,6 +34,28 @@ h4 {
     linear-gradient(180deg, #f8fafc 0%, #f1f5f9 48%, #eefaf7 100%);
 }
 
+.prosperity-hero {
+  background:
+    radial-gradient(circle at 88% 18%, rgba(250, 204, 21, 0.2), transparent 24%),
+    radial-gradient(circle at 70% 110%, rgba(45, 212, 191, 0.28), transparent 34%),
+    linear-gradient(135deg, #07182e 0%, #0b3651 48%, #0f766e 100%);
+  box-shadow: 0 28px 60px rgba(8, 47, 73, 0.24);
+}
+.dashboard-hero { background: radial-gradient(circle at 85% 12%, rgba(34,211,238,.22), transparent 25%), linear-gradient(135deg,#07182e,#0b3651 55%,#115e59); box-shadow: 0 24px 55px rgba(8,47,73,.2); }
+
+.prosperity-orb { position: absolute; border-radius: 999px; filter: blur(4px); animation: bc-float 7s ease-in-out infinite; }
+.prosperity-orb-one { width: 180px; height: 180px; right: 4%; top: -55px; background: rgba(250, 204, 21, 0.12); }
+.prosperity-orb-two { width: 120px; height: 120px; right: 24%; bottom: -58px; background: rgba(34, 211, 238, 0.16); animation-delay: -2s; }
+.metric-card { border: 1px solid rgba(148, 163, 184, .22); border-radius: 24px; background: rgba(255,255,255,.94); padding: 1.1rem; box-shadow: 0 10px 28px rgba(15,23,42,.07); }
+.metric-label, .eyebrow { margin: 0; font-size: .69rem; font-weight: 800; letter-spacing: .17em; text-transform: uppercase; color: #64748b; }
+.metric-number { margin-top: .55rem; font-family: "Sora", sans-serif; font-size: 1.45rem; font-weight: 700; letter-spacing: -.035em; }
+.metric-help { margin-top: .35rem; font-size: .72rem; line-height: 1.4; color: #64748b; }
+.field-label { display: block; font-size: .72rem; font-weight: 700; color: #475569; }
+.field-input { display: block; width: 100%; margin-top: .35rem; border: 1px solid #cbd5e1; border-radius: .8rem; padding: .68rem .78rem; font-size: .86rem; font-weight: 500; color: #0f172a; background: #fff; }
+.primary-button { border-radius: .8rem; background: linear-gradient(135deg, #0f172a, #0f766e); padding: .72rem 1rem; font-size: .82rem; font-weight: 800; color: white; box-shadow: 0 10px 20px rgba(15,118,110,.16); }
+.primary-button:hover { transform: translateY(-1px); box-shadow: 0 14px 26px rgba(15,118,110,.22); }
+.empty-state { border: 1px dashed #cbd5e1; border-radius: 24px; background: rgba(248,250,252,.8); padding: 1.5rem; color: #334155; }
+
 .sidebar-surface {
   background:
     linear-gradient(180deg, var(--sidebar-start) 0%, #091a34 52%, var(--sidebar-end) 100%),

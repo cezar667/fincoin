@@ -1,5 +1,7 @@
 from datetime import date
 
+from sqlalchemy import inspect, text
+
 from app.application.dto.business_control_dto import (
     CreateBusinessCashEntryDTO,
     CreateBusinessDTO,
@@ -10,14 +12,16 @@ from app.application.dto.business_control_dto import (
     UpsertMembershipPlanDTO,
 )
 from app.application.use_cases.business_control import SOOMEI_CATEGORIES
-from app.application.use_cases.business_control_finance import BusinessControlFinanceService
+from app.application.use_cases.business_control_finance import (
+    BusinessControlFinanceService,
+)
 from app.infrastructure.auth.password import hash_password
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.legacy import ensure_sqlite_legacy_business_control_schema
 from app.infrastructure.db.models.account import Account
-from app.infrastructure.db.models.category import Category
 from app.infrastructure.db.models.business import Business
 from app.infrastructure.db.models.business_category import BusinessCategory
+from app.infrastructure.db.models.category import Category
 from app.infrastructure.db.models.cost_center import CostCenter
 from app.infrastructure.db.models.enums import (
     AccountType,
@@ -26,6 +30,7 @@ from app.infrastructure.db.models.enums import (
     MemberStatus,
     TransactionDirection,
 )
+from app.infrastructure.db.models.financial_plan import FinancialPlan
 from app.infrastructure.db.models.member import Member
 from app.infrastructure.db.models.membership_plan import MembershipPlan
 from app.infrastructure.db.models.subscription import Subscription
@@ -33,14 +38,44 @@ from app.infrastructure.db.models.user import User
 from app.infrastructure.db.session import SessionLocal, engine
 
 
+def _ensure_account_initial_balance_column() -> None:
+    """Repair databases created from the schema before migration 0003."""
+    inspector = inspect(engine)
+    if "accounts" not in inspector.get_table_names():
+        return
+    columns = {item["name"] for item in inspector.get_columns("accounts")}
+    if "initial_balance_cents" in columns:
+        return
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE accounts "
+                "ADD COLUMN initial_balance_cents BIGINT NOT NULL DEFAULT 0"
+            )
+        )
+
+
 def _ensure_demo_business(db, user: User) -> None:
     service = BusinessControlFinanceService(db)
     plan_mapping = {
-        "Soomei Start": {"external_product_id": "soomei-start", "external_reference_id": "TM-SOOMEI-START"},
-        "Soomei Annual": {"external_product_id": "soomei-annual", "external_reference_id": "TM-SOOMEI-ANNUAL"},
-        "Soomei Prime": {"external_product_id": "soomei-prime", "external_reference_id": "TM-SOOMEI-PRIME"},
+        "Soomei Start": {
+            "external_product_id": "soomei-start",
+            "external_reference_id": "TM-SOOMEI-START",
+        },
+        "Soomei Annual": {
+            "external_product_id": "soomei-annual",
+            "external_reference_id": "TM-SOOMEI-ANNUAL",
+        },
+        "Soomei Prime": {
+            "external_product_id": "soomei-prime",
+            "external_reference_id": "TM-SOOMEI-PRIME",
+        },
     }
-    existing_business = db.query(Business).filter(Business.owner_user_id == user.id, Business.slug == "soomei").first()
+    existing_business = (
+        db.query(Business)
+        .filter(Business.owner_user_id == user.id, Business.slug == "soomei")
+        .first()
+    )
     if existing_business is None:
         existing_business = service.create_business(
             actor_user_id=user.id,
@@ -60,7 +95,9 @@ def _ensure_demo_business(db, user: User) -> None:
         )
         existing_categories = {
             item.code
-            for item in db.query(BusinessCategory).filter(BusinessCategory.business_id == existing_business.id).all()
+            for item in db.query(BusinessCategory)
+            .filter(BusinessCategory.business_id == existing_business.id)
+            .all()
             if item.code
         }
         for template in SOOMEI_CATEGORIES:
@@ -77,13 +114,16 @@ def _ensure_demo_business(db, user: User) -> None:
                     description=template.get("description"),
                 ),
             )
-        for current_plan in service.list_membership_plans(owner_user_id=user.id, business_id=existing_business.id):
+        for current_plan in service.list_membership_plans(
+            owner_user_id=user.id, business_id=existing_business.id
+        ):
             mapping = plan_mapping.get(current_plan.name)
             if mapping is None:
                 continue
             if (
                 current_plan.external_product_id == mapping["external_product_id"]
-                and current_plan.external_reference_id == mapping["external_reference_id"]
+                and current_plan.external_reference_id
+                == mapping["external_reference_id"]
             ):
                 continue
             service.update_membership_plan(
@@ -106,7 +146,10 @@ def _ensure_demo_business(db, user: User) -> None:
     today = date.today()
     demo_member = (
         db.query(Member)
-        .filter(Member.business_id == existing_business.id, Member.full_name == "Associado Demo")
+        .filter(
+            Member.business_id == existing_business.id,
+            Member.full_name == "Associado Demo",
+        )
         .first()
     )
     if demo_member is None:
@@ -126,7 +169,10 @@ def _ensure_demo_business(db, user: User) -> None:
 
     first_plan = (
         db.query(MembershipPlan)
-        .filter(MembershipPlan.business_id == existing_business.id, MembershipPlan.is_active.is_(True))
+        .filter(
+            MembershipPlan.business_id == existing_business.id,
+            MembershipPlan.is_active.is_(True),
+        )
         .order_by(MembershipPlan.created_at.asc())
         .first()
     )
@@ -154,19 +200,31 @@ def _ensure_demo_business(db, user: User) -> None:
 
     categories = {
         item.code: item
-        for item in db.query(BusinessCategory).filter(BusinessCategory.business_id == existing_business.id).all()
+        for item in db.query(BusinessCategory)
+        .filter(BusinessCategory.business_id == existing_business.id)
+        .all()
         if item.code
     }
     cost_centers = {
         item.code: item
-        for item in db.query(CostCenter).filter(CostCenter.business_id == existing_business.id).all()
+        for item in db.query(CostCenter)
+        .filter(CostCenter.business_id == existing_business.id)
+        .all()
         if item.code
     }
-    accounts = service.list_accounts(owner_user_id=user.id, business_id=existing_business.id)
-    operational_account = next((item for item in accounts if item.name == "Conta Operacional"), accounts[0])
-    funding_rows = service.list_fundings(owner_user_id=user.id, business_id=existing_business.id)
+    accounts = service.list_accounts(
+        owner_user_id=user.id, business_id=existing_business.id
+    )
+    operational_account = next(
+        (item for item in accounts if item.name == "Conta Operacional"), accounts[0]
+    )
+    funding_rows = service.list_fundings(
+        owner_user_id=user.id, business_id=existing_business.id
+    )
     credit_name = "Credito inicial Soomei"
-    funding_row = next((item for item in funding_rows if item.name == credit_name), None)
+    funding_row = next(
+        (item for item in funding_rows if item.name == credit_name), None
+    )
     if funding_row is None:
         funding_row = service.create_funding(
             actor_user_id=user.id,
@@ -176,8 +234,12 @@ def _ensure_demo_business(db, user: User) -> None:
                 lender_name="Credito consignado demo",
                 disbursement_account_id=operational_account.id,
                 settlement_account_id=operational_account.id,
-                payment_category_id=categories.get("FIN").id if categories.get("FIN") else None,
-                cost_center_id=cost_centers.get("ADM").id if cost_centers.get("ADM") else None,
+                payment_category_id=categories.get("FIN").id
+                if categories.get("FIN")
+                else None,
+                cost_center_id=cost_centers.get("ADM").id
+                if cost_centers.get("ADM")
+                else None,
                 principal_cents=100_000_00,
                 installment_amount_cents=3_125_00,
                 installment_count=36,
@@ -190,14 +252,18 @@ def _ensure_demo_business(db, user: User) -> None:
 
     existing_descriptions = {
         item.description
-        for item in service.list_cash_entries(owner_user_id=user.id, business_id=existing_business.id, limit=200)
+        for item in service.list_cash_entries(
+            owner_user_id=user.id, business_id=existing_business.id, limit=200
+        )
     }
     demo_entries = [
         {
             "description": "Landing page e checkout de aquisicao",
             "amount_cents": 12_500_00,
             "category_id": categories.get("INV").id if categories.get("INV") else None,
-            "cost_center_id": cost_centers.get("TECH").id if cost_centers.get("TECH") else None,
+            "cost_center_id": cost_centers.get("TECH").id
+            if cost_centers.get("TECH")
+            else None,
             "activity_type": BusinessCashActivityType.INVESTING,
             "occurred_on": today,
         },
@@ -205,15 +271,21 @@ def _ensure_demo_business(db, user: User) -> None:
             "description": "Trafego pago de lancamento",
             "amount_cents": 8_000_00,
             "category_id": categories.get("INV").id if categories.get("INV") else None,
-            "cost_center_id": cost_centers.get("COM").id if cost_centers.get("COM") else None,
+            "cost_center_id": cost_centers.get("COM").id
+            if cost_centers.get("COM")
+            else None,
             "activity_type": BusinessCashActivityType.INVESTING,
             "occurred_on": today,
         },
         {
             "description": "Emissao inicial de cartoes NFC",
             "amount_cents": 3_500_00,
-            "category_id": categories.get("CARD").id if categories.get("CARD") else None,
-            "cost_center_id": cost_centers.get("OPER").id if cost_centers.get("OPER") else None,
+            "category_id": categories.get("CARD").id
+            if categories.get("CARD")
+            else None,
+            "cost_center_id": cost_centers.get("OPER").id
+            if cost_centers.get("OPER")
+            else None,
             "activity_type": BusinessCashActivityType.OPERATING,
             "occurred_on": today,
         },
@@ -241,6 +313,7 @@ def _ensure_demo_business(db, user: User) -> None:
 
 def run() -> None:
     Base.metadata.create_all(bind=engine)
+    _ensure_account_initial_balance_column()
     ensure_sqlite_legacy_business_control_schema(engine)
     db = SessionLocal()
     try:
@@ -250,14 +323,39 @@ def run() -> None:
             existing.is_active = True
             db.add(existing)
             db.commit()
+            if (
+                db.query(FinancialPlan)
+                .filter(FinancialPlan.user_id == existing.id)
+                .first()
+                is None
+            ):
+                db.add(
+                    FinancialPlan(
+                        user_id=existing.id,
+                        name="Plano Familiar",
+                        description="Cenário principal para organizar, quitar dívidas e construir prosperidade.",
+                    )
+                )
+                db.commit()
             _ensure_demo_business(db, existing)
             return
-        user = User(email="demo@finsight.local", password_hash=hash_password("demo123"), is_active=True)
+        user = User(
+            email="demo@finsight.local",
+            password_hash=hash_password("demo123"),
+            is_active=True,
+        )
         db.add(user)
         db.flush()
         db.add(Account(user_id=user.id, name="Conta Principal", type=AccountType.BANK))
         db.add(Category(user_id=user.id, name="Salario", kind=CategoryKind.INCOME))
         db.add(Category(user_id=user.id, name="Moradia", kind=CategoryKind.EXPENSE))
+        db.add(
+            FinancialPlan(
+                user_id=user.id,
+                name="Plano Familiar",
+                description="Cenário principal para organizar, quitar dívidas e construir prosperidade.",
+            )
+        )
         _ensure_demo_business(db, user)
         db.commit()
     finally:
