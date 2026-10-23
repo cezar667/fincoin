@@ -1,6 +1,6 @@
 import re
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from uuid import UUID
 
@@ -21,6 +21,8 @@ from app.infrastructure.db.models.enums import DebtKind, TransactionDirection
 from app.infrastructure.db.models.financial_goal import FinancialGoal
 from app.infrastructure.db.models.financial_plan import FinancialPlan
 from app.infrastructure.db.models.income_opportunity import IncomeOpportunity
+from app.infrastructure.db.models.mileage_movement import MileageMovement
+from app.infrastructure.db.models.mileage_program import MileageProgram
 from app.infrastructure.db.models.recurring_rule import RecurringRule
 from app.infrastructure.db.models.transaction import Transaction
 from app.infrastructure.db.session import get_db
@@ -50,6 +52,11 @@ STAGE_LABELS = {
     "GENERATING": "Gerando renda",
     "PAUSED": "Pausada",
 }
+MILEAGE_MOVEMENT_LABELS = {
+    "EARN": "Acúmulo",
+    "REDEEM": "Resgate",
+    "ADJUSTMENT": "Ajuste",
+}
 
 
 def _money(value: str, *, allow_zero: bool = True) -> int:
@@ -70,6 +77,18 @@ def _money(value: str, *, allow_zero: bool = True) -> int:
 
 def _optional_date(value: str) -> date | None:
     return date.fromisoformat(value) if value.strip() else None
+
+
+def _miles(value: str, *, allow_zero: bool = True, allow_negative: bool = False) -> int:
+    normalized = (value or "").strip().replace(".", "").replace(" ", "")
+    normalized = normalized.removeprefix("+")
+    try:
+        miles = int(normalized or "0")
+    except ValueError as exc:
+        raise ValueError("Quantidade de milhas inválida.") from exc
+    if (not allow_negative and miles < 0) or (not allow_zero and miles == 0):
+        raise ValueError("Informe uma quantidade de milhas válida.")
+    return miles
 
 
 def _flash(request: Request, kind: str, message: str) -> None:
@@ -128,6 +147,35 @@ def prosperity_page(
             .order_by(IncomeOpportunity.stage, IncomeOpportunity.created_at.desc())
         )
     )
+    mileage_programs = list(
+        db.scalars(
+            select(MileageProgram)
+            .where(MileageProgram.user_id == user_id)
+            .order_by(
+                MileageProgram.expires_on.is_(None),
+                MileageProgram.expires_on,
+                MileageProgram.name,
+            )
+        )
+    )
+    mileage_movements = list(
+        db.scalars(
+            select(MileageMovement)
+            .where(MileageMovement.user_id == user_id)
+            .order_by(
+                MileageMovement.occurred_on.desc(), MileageMovement.created_at.desc()
+            )
+            .limit(8)
+        )
+    )
+    mileage_expiry_limit = date.today() + timedelta(days=90)
+    expiring_mileage_programs = [
+        item
+        for item in mileage_programs
+        if item.balance_miles > 0
+        and item.expires_on is not None
+        and item.expires_on <= mileage_expiry_limit
+    ]
     expense_categories = list(
         db.scalars(
             select(Category)
@@ -312,6 +360,19 @@ def prosperity_page(
             "debt_plans": plans_by_debt,
             "goals": goals,
             "opportunities": opportunities,
+            "mileage_programs": mileage_programs,
+            "mileage_programs_by_id": {item.id: item for item in mileage_programs},
+            "mileage_movements": mileage_movements,
+            "mileage_movement_labels": MILEAGE_MOVEMENT_LABELS,
+            "mileage_movement_kinds": [
+                {"value": value, "label": label}
+                for value, label in MILEAGE_MOVEMENT_LABELS.items()
+            ],
+            "total_miles": sum(item.balance_miles for item in mileage_programs),
+            "expiring_miles": sum(
+                item.balance_miles for item in expiring_mileage_programs
+            ),
+            "mileage_expiry_limit": mileage_expiry_limit,
             "debt_kind_labels": {
                 key.value: value for key, value in DEBT_KIND_LABELS.items()
             },
@@ -613,3 +674,95 @@ def update_opportunity_stage(
         db.commit()
         _flash(request, "ok", "Etapa da oportunidade atualizada.")
     return RedirectResponse("/app/prosperity#renda", status_code=303)
+
+
+@router.post("/app/prosperity/miles/programs")
+def create_mileage_program(
+    request: Request,
+    name: str = Form(...),
+    balance: str = Form("0"),
+    target: str = Form(""),
+    expires_on: str = Form(""),
+    notes: str = Form(""),
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user_id = user_id_from_session(request)
+    if user_id is None:
+        return RedirectResponse("/login", status_code=303)
+    validate_csrf(request, csrf_token)
+    try:
+        program_name = name.strip()
+        if not program_name:
+            raise ValueError("Informe o nome do programa de milhas.")
+        target_miles = _miles(target) if target.strip() else None
+        db.add(
+            MileageProgram(
+                user_id=user_id,
+                name=program_name,
+                balance_miles=_miles(balance),
+                target_miles=target_miles,
+                expires_on=_optional_date(expires_on),
+                notes=notes.strip() or None,
+            )
+        )
+        db.commit()
+        _flash(request, "ok", "Programa de milhas adicionado ao seu planejamento.")
+    except Exception as exc:
+        db.rollback()
+        _flash(request, "error", f"Não foi possível salvar o programa: {exc}")
+    return RedirectResponse("/app/prosperity#milhas", status_code=303)
+
+
+@router.post("/app/prosperity/miles/programs/{program_id}/movements")
+def add_mileage_movement(
+    program_id: UUID,
+    request: Request,
+    kind: str = Form(...),
+    miles: str = Form(...),
+    occurred_on: str = Form(...),
+    description: str = Form(""),
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user_id = user_id_from_session(request)
+    if user_id is None:
+        return RedirectResponse("/login", status_code=303)
+    validate_csrf(request, csrf_token)
+    try:
+        program = db.scalar(
+            select(MileageProgram).where(
+                MileageProgram.id == program_id, MileageProgram.user_id == user_id
+            )
+        )
+        if program is None:
+            raise ValueError("Programa de milhas não encontrado.")
+        if kind not in MILEAGE_MOVEMENT_LABELS:
+            raise ValueError("Tipo de movimentação inválido.")
+        if kind == "ADJUSTMENT":
+            delta = _miles(miles, allow_zero=False, allow_negative=True)
+        else:
+            quantity = _miles(miles, allow_zero=False)
+            delta = quantity if kind == "EARN" else -quantity
+        if program.balance_miles + delta < 0:
+            raise ValueError("O resgate não pode deixar o saldo de milhas negativo.")
+        movement_date = _optional_date(occurred_on)
+        if movement_date is None:
+            raise ValueError("Informe a data da movimentação.")
+        program.balance_miles += delta
+        db.add(
+            MileageMovement(
+                user_id=user_id,
+                program_id=program.id,
+                kind=kind,
+                miles=delta,
+                occurred_on=movement_date,
+                description=description.strip() or None,
+            )
+        )
+        db.commit()
+        _flash(request, "ok", "Movimentação de milhas registrada.")
+    except Exception as exc:
+        db.rollback()
+        _flash(request, "error", f"Não foi possível registrar a movimentação: {exc}")
+    return RedirectResponse("/app/prosperity#milhas", status_code=303)

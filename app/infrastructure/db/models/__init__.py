@@ -19,6 +19,8 @@ from app.infrastructure.db.models.financial_goal import FinancialGoal
 from app.infrastructure.db.models.import_file import ImportFile
 from app.infrastructure.db.models.installment import Installment
 from app.infrastructure.db.models.income_opportunity import IncomeOpportunity
+from app.infrastructure.db.models.mileage_movement import MileageMovement
+from app.infrastructure.db.models.mileage_program import MileageProgram
 from app.infrastructure.db.models.member import Member
 from app.infrastructure.db.models.membership_plan import MembershipPlan
 from app.infrastructure.db.models.notification import Notification
@@ -55,6 +57,8 @@ __all__ = [
     "ImportFile",
     "Installment",
     "IncomeOpportunity",
+    "MileageMovement",
+    "MileageProgram",
     "Member",
     "MembershipPlan",
     "Notification",
