@@ -23,6 +23,10 @@ Receber webhooks do checkout do TheMembers com seguranca, processar em tempo qua
   - `receivables.external_invoice_id`
   - `receivables.external_order_id`
   - `receipts.external_transaction_id`
+- Baixa automatica no financeiro:
+  - `receipt` criado automaticamente
+  - `business_cash_entry` de entrada criado automaticamente
+  - categoria `PRD` para produtos avulsos e `MRR/ATV/2VIA` para receitas recorrentes
 
 ## Modelo de seguranca
 - A URL do webhook inclui um `webhook_path_token` aleatorio por business.
@@ -34,12 +38,14 @@ Receber webhooks do checkout do TheMembers com seguranca, processar em tempo qua
 ## Eventos suportados
 - `release.access`
   - cria/atualiza associado
-  - cria/reativa assinatura
+  - cria/reativa assinatura quando o payload traz `subscription`
   - concilia pagamento inicial quando o payload traz `transaction` e `order`
+  - tambem trata compra avulsa quando nao existe `subscription`
 - `transaction.approved`
-  - concilia pagamento recorrente
+  - concilia pagamento recorrente de plano mensal ou anual
   - cria ou reutiliza titulo por competencia
   - registra recebimento e avanca `next_billing_on`
+  - tambem registra venda avulsa de cursos e outros produtos sem criar assinatura
 - `order.canceled`
   - marca pedido de cancelamento
   - suspende assinatura quando aplicavel
@@ -57,7 +63,30 @@ Receber webhooks do checkout do TheMembers com seguranca, processar em tempo qua
 O TheMembers pode entregar eventos em ordens diferentes. O fluxo foi preparado para isso:
 - `transaction.approved` pode chegar antes de `release.access`
 - `release.access` pode chegar com `transaction` e `order` no mesmo payload
+- compras avulsas podem chegar sem `subscription`
 - eventos repetidos retornam `duplicate` e nao criam lancamentos extras
+
+## Regras comerciais importantes
+- plano mensal
+  - gera competencia mensal
+  - alimenta `MRR`
+- plano anual
+  - gera cobranca anual
+  - `next_billing_on` avanca 12 meses
+  - o dashboard usa equivalente mensal para `MRR`
+- produto avulso
+  - nao cria assinatura
+  - gera `receivable` sem `subscription_id`
+  - baixa automaticamente no caixa como receita de produto
+
+## Operacao em escala
+Para base alta, o fluxo atual evita baixa manual:
+- cada `transaction.approved` cria ou reutiliza titulo e recebimento
+- a entrada ja cai no fluxo de caixa
+- o dashboard mostra crescimento diario dos ultimos 14 dias
+- o dashboard destaca receita de hoje, receita dos ultimos 7 dias, novas assinaturas, novos associados e vendas avulsas do mes
+
+Se a volumetria crescer muito alem do processamento sincrono atual, o proximo passo recomendado e adicionar fila assincrona para consumo dos webhooks, mantendo o mesmo contrato de payload e idempotencia.
 
 ## Fluxo operacional no FinSight
 1. Provisionar a integracao em `Business Control > Integracoes`
@@ -196,6 +225,42 @@ curl -X POST "{URL}" \
   }'
 ```
 
+### `transaction.approved` de produto avulso
+```bash
+curl -X POST "{URL}" \
+  -H "Content-Type: application/json" \
+  -H "X-Signature: {TOKEN}" \
+  -d '{
+    "payload": {
+      "id": "evt-course-local-1",
+      "event": "transaction.approved",
+      "data": {
+        "customer": {
+          "id": "cust-course-1",
+          "name": "Associada Curso",
+          "email": "curso@teste.com"
+        },
+        "main_product": {
+          "id": "curso-soomei",
+          "reference_id": "TM-CURSO-SOOMEI",
+          "title": "Curso Receita Recorrente"
+        },
+        "transaction": {
+          "id": "TRX-COURSE-1",
+          "value": 2990,
+          "method": "pix",
+          "paid_at": "2026-03-13T11:00:00Z"
+        },
+        "order": {
+          "id": "ORD-COURSE-1",
+          "total": 2990,
+          "created_at": "2026-03-13T10:58:00Z"
+        }
+      }
+    }
+  }'
+```
+
 ### `order.canceled`
 ```bash
 curl -X POST "{URL}" \
@@ -235,15 +300,22 @@ curl -X POST "{URL}" \
    - novo titulo
    - novo recebimento
    - `next_billing_on` avancado
-5. Enviar `order.canceled` e confirmar assinatura `SUSPENDED`.
-6. Enviar `revoke.access` e confirmar assinatura e associado `CANCELED`.
-7. Enviar payload com plano sem mapeamento e confirmar:
+5. Enviar `transaction.approved` de produto avulso e confirmar:
+   - nenhum `subscription` novo
+   - `receivable` sem `subscription_id`
+   - `receipt` criado
+   - entrada refletida no caixa
+6. Enviar `order.canceled` e confirmar assinatura `SUSPENDED`.
+7. Enviar `revoke.access` e confirmar assinatura e associado `CANCELED`.
+8. Enviar payload com plano sem mapeamento e confirmar:
    - evento `FAILED`
    - reprocessamento pelo painel apos corrigir o plano
 
 ## Testes automatizados incluidos
 - `tests/test_themembers_integration.py`
   - criacao do associado via `release.access`
+  - plano anual avancando `next_billing_on` em 12 meses
+  - venda avulsa sem assinatura
   - idempotencia
   - cancelamento e revogacao
   - reprocessamento de falha

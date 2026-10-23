@@ -92,6 +92,7 @@ class MemberStatus(StrEnum):
 
 class BillingCadence(StrEnum):
     MONTHLY = "MONTHLY"
+    YEARLY = "YEARLY"
 
 
 class SubscriptionStatus(StrEnum):

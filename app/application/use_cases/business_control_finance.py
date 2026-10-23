@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.application.dto.business_control_dto import (
@@ -35,8 +35,10 @@ from app.infrastructure.db.models.enums import (
     ReceivableStatus,
     TransactionDirection,
 )
+from app.infrastructure.db.models.member import Member
 from app.infrastructure.db.models.receipt import Receipt
 from app.infrastructure.db.models.receivable import Receivable
+from app.infrastructure.db.models.subscription import Subscription
 
 
 @dataclass(slots=True)
@@ -73,6 +75,16 @@ class FundingSnapshot:
 
 
 @dataclass(slots=True)
+class DailyGrowthPoint:
+    reference_date: date
+    label: str
+    new_members_count: int
+    new_subscriptions_count: int
+    paid_orders_count: int
+    revenue_cents: int
+
+
+@dataclass(slots=True)
 class BusinessFinanceDashboardSummary(BusinessOperationsDashboardSummary):
     current_cash_cents: int
     inflows_this_month_cents: int
@@ -84,6 +96,11 @@ class BusinessFinanceDashboardSummary(BusinessOperationsDashboardSummary):
     financing_due_next_30_days_cents: int
     capital_consumed_cents: int
     capital_preserved_cents: int
+    revenue_today_cents: int
+    revenue_last_7_days_cents: int
+    new_members_today: int
+    new_subscriptions_today: int
+    one_time_sales_this_month_cents: int
     recent_cash_entries: list[BusinessCashEntry]
     account_positions: list[AccountCashPosition]
     top_spending_categories: list[CashBreakdownItem]
@@ -92,6 +109,7 @@ class BusinessFinanceDashboardSummary(BusinessOperationsDashboardSummary):
     capital_map_nodes: list[MindMapNode]
     funding_snapshots: list[FundingSnapshot]
     upcoming_installments: list[BusinessFundingInstallment]
+    daily_growth_points: list[DailyGrowthPoint]
 
 
 class BusinessControlFinanceService(TheMembersIntegrationService):
@@ -109,6 +127,7 @@ class BusinessControlFinanceService(TheMembersIntegrationService):
         cash_entries = self._list_cash_entries_for_business(business_id=business_id)
         installments = self._list_funding_installments_for_business(business_id=business_id)
         funding_rows = self._list_fundings_for_business(business_id=business_id)
+        growth_points = self._build_daily_growth_points(business_id=business_id, reference=today, days=14)
 
         current_cash_cents = self._current_cash_cents(accounts=accounts, entries=cash_entries)
         inflows_this_month_cents = sum(
@@ -140,6 +159,23 @@ class BusinessControlFinanceService(TheMembersIntegrationService):
 
         capital_preserved_cents = min(max(current_cash_cents, 0), total_financing_cents)
         capital_consumed_cents = max(total_financing_cents - capital_preserved_cents, 0)
+        revenue_today_cents = growth_points[-1].revenue_cents if growth_points else 0
+        revenue_last_7_days_cents = sum(item.revenue_cents for item in growth_points[-7:])
+        new_members_today = growth_points[-1].new_members_count if growth_points else 0
+        new_subscriptions_today = growth_points[-1].new_subscriptions_count if growth_points else 0
+        one_time_sales_this_month_cents = int(
+            self.db.scalar(
+                select(func.coalesce(func.sum(Receipt.amount_received_cents), 0))
+                .join(Receivable, Receipt.receivable_id == Receivable.id)
+                .where(
+                    Receipt.business_id == business_id,
+                    Receipt.received_on >= current_month,
+                    Receipt.received_on < next_month,
+                    Receivable.subscription_id.is_(None),
+                )
+            )
+            or 0
+        )
         account_positions = self.build_account_positions(
             owner_user_id=owner_user_id,
             business_id=business_id,
@@ -238,6 +274,11 @@ class BusinessControlFinanceService(TheMembersIntegrationService):
             financing_due_next_30_days_cents=financing_due_next_30_days_cents,
             capital_consumed_cents=capital_consumed_cents,
             capital_preserved_cents=capital_preserved_cents,
+            revenue_today_cents=revenue_today_cents,
+            revenue_last_7_days_cents=revenue_last_7_days_cents,
+            new_members_today=new_members_today,
+            new_subscriptions_today=new_subscriptions_today,
+            one_time_sales_this_month_cents=one_time_sales_this_month_cents,
             recent_cash_entries=cash_entries[:8],
             account_positions=account_positions,
             top_spending_categories=top_spending_categories,
@@ -246,6 +287,7 @@ class BusinessControlFinanceService(TheMembersIntegrationService):
             capital_map_nodes=capital_map_nodes,
             funding_snapshots=funding_snapshots[:4],
             upcoming_installments=[item for item in installments if item.status != FundingInstallmentStatus.PAID][:6],
+            daily_growth_points=growth_points,
         )
 
     def list_cash_entries(
@@ -785,6 +827,16 @@ class BusinessControlFinanceService(TheMembersIntegrationService):
         business_id: UUID,
         receivable: Receivable,
     ) -> BusinessCategory | None:
+        if receivable.subscription_id is None:
+            product_category = self.db.scalar(
+                select(BusinessCategory).where(
+                    BusinessCategory.business_id == business_id,
+                    BusinessCategory.code == "PRD",
+                    BusinessCategory.is_active.is_(True),
+                )
+            )
+            if product_category is not None:
+                return product_category
         code_map = {
             ReceivableKind.RECURRING: "MRR",
             ReceivableKind.ACTIVATION: "ATV",
@@ -843,6 +895,22 @@ class BusinessControlFinanceService(TheMembersIntegrationService):
         )
         if limit is not None:
             stmt = stmt.limit(limit)
+        return list(self.db.scalars(stmt))
+
+    def _list_receipts_for_business(
+        self,
+        *,
+        business_id: UUID,
+        start_on: date | None = None,
+    ) -> list[Receipt]:
+        stmt = (
+            select(Receipt)
+            .options(selectinload(Receipt.receivable))
+            .where(Receipt.business_id == business_id)
+            .order_by(Receipt.received_on.asc(), Receipt.created_at.asc())
+        )
+        if start_on is not None:
+            stmt = stmt.where(Receipt.received_on >= start_on)
         return list(self.db.scalars(stmt))
 
     def _list_fundings_for_business(self, *, business_id: UUID) -> list[BusinessFunding]:
@@ -961,6 +1029,79 @@ class BusinessControlFinanceService(TheMembersIntegrationService):
         if row is None:
             raise ValueError("Parcela do financiamento nao encontrada.")
         return row
+
+    def _build_daily_growth_points(
+        self,
+        *,
+        business_id: UUID,
+        reference: date,
+        days: int,
+    ) -> list[DailyGrowthPoint]:
+        start_on = reference - timedelta(days=days - 1)
+        members_by_day = {
+            row.reference_date: int(row.total)
+            for row in self.db.execute(
+                select(
+                    Member.joined_on.label("reference_date"),
+                    func.count(Member.id).label("total"),
+                )
+                .where(
+                    Member.business_id == business_id,
+                    Member.joined_on >= start_on,
+                    Member.joined_on <= reference,
+                )
+                .group_by(Member.joined_on)
+            )
+        }
+
+        subscriptions_by_day = {
+            row.reference_date: int(row.total)
+            for row in self.db.execute(
+                select(
+                    Subscription.started_on.label("reference_date"),
+                    func.count(Subscription.id).label("total"),
+                )
+                .where(
+                    Subscription.business_id == business_id,
+                    Subscription.started_on >= start_on,
+                    Subscription.started_on <= reference,
+                )
+                .group_by(Subscription.started_on)
+            )
+        }
+
+        orders_by_day: dict[date, int] = {}
+        revenue_by_day: dict[date, int] = {}
+        for row in self.db.execute(
+            select(
+                Receipt.received_on.label("reference_date"),
+                func.count(Receipt.id).label("total_orders"),
+                func.coalesce(func.sum(Receipt.amount_received_cents), 0).label("total_revenue"),
+            )
+            .where(
+                Receipt.business_id == business_id,
+                Receipt.received_on >= start_on,
+                Receipt.received_on <= reference,
+            )
+            .group_by(Receipt.received_on)
+        ):
+            orders_by_day[row.reference_date] = int(row.total_orders)
+            revenue_by_day[row.reference_date] = int(row.total_revenue)
+
+        points: list[DailyGrowthPoint] = []
+        for offset in range(days):
+            current_day = start_on + timedelta(days=offset)
+            points.append(
+                DailyGrowthPoint(
+                    reference_date=current_day,
+                    label=current_day.strftime("%d/%m"),
+                    new_members_count=members_by_day.get(current_day, 0),
+                    new_subscriptions_count=subscriptions_by_day.get(current_day, 0),
+                    paid_orders_count=orders_by_day.get(current_day, 0),
+                    revenue_cents=revenue_by_day.get(current_day, 0),
+                )
+            )
+        return points
 
     @staticmethod
     def _signed_amount(entry: BusinessCashEntry) -> int:

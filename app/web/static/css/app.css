@@ -352,6 +352,119 @@ summary:focus {
   color: #4338ca;
 }
 
+.growth-chart-shell {
+  overflow-x: auto;
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.92)),
+    radial-gradient(circle at top, rgba(20, 184, 166, 0.08), transparent 46%);
+  padding: 1rem;
+}
+
+.growth-chart {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(72px, 1fr);
+  gap: 0.75rem;
+  min-width: 100%;
+}
+
+.growth-day {
+  display: flex;
+  min-height: 220px;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-radius: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.85rem 0.75rem 0.9rem;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+}
+
+.growth-bars {
+  display: flex;
+  min-height: 132px;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.growth-bar {
+  border-radius: 999px 999px 12px 12px;
+  animation: growth-rise 700ms ease-out both;
+  transform-origin: bottom center;
+}
+
+.growth-bar-revenue {
+  flex: 1 1 auto;
+  min-width: 22px;
+  background:
+    linear-gradient(180deg, rgba(15, 118, 110, 0.9), rgba(8, 145, 178, 0.92));
+  box-shadow: 0 12px 22px rgba(15, 118, 110, 0.22);
+}
+
+.growth-bar-volume {
+  width: 12px;
+  background:
+    linear-gradient(180deg, rgba(99, 102, 241, 0.82), rgba(79, 70, 229, 0.92));
+  box-shadow: 0 10px 18px rgba(79, 70, 229, 0.18);
+}
+
+.growth-counters {
+  margin-top: 0.8rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.growth-counters span {
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.9);
+  padding: 0.22rem 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(51, 65, 85, 0.92);
+}
+
+.growth-metric-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(248, 250, 252, 0.88);
+  padding: 0.95rem 1rem;
+}
+
+.growth-metric-label {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(71, 85, 105, 0.82);
+}
+
+.growth-metric-caption {
+  margin: 0.32rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: rgba(71, 85, 105, 0.88);
+}
+
+.growth-metric-value {
+  margin: 0;
+  text-align: right;
+  font-family: "Sora", "Plus Jakarta Sans", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--brand-ink);
+}
+
 @keyframes journey-pulse {
   0% {
     transform: scale(0.9);
@@ -374,6 +487,17 @@ summary:focus {
   }
   50% {
     transform: translateY(-5px);
+  }
+}
+
+@keyframes growth-rise {
+  from {
+    opacity: 0.4;
+    transform: scaleY(0.1);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
   }
 }
 
@@ -403,5 +527,9 @@ summary:focus {
 
   .mind-map-core {
     grid-column: span 2;
+  }
+
+  .growth-chart {
+    grid-auto-columns: minmax(0, 1fr);
   }
 }

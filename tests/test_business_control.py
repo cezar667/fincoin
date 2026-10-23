@@ -43,6 +43,7 @@ from app.infrastructure.db.models.enums import (
     BillingCadence,
     BusinessAccountType,
     MemberStatus,
+    ReceivableKind,
     ReceiptMethod,
     SubscriptionStatus,
 )
@@ -232,6 +233,79 @@ def test_create_subscription_generates_initial_receivables() -> None:
         assert created_subscription.next_billing_on == date(2026, 4, 5)
         refreshed_member = service._get_member(business_id=created_business.id, member_id=created_member.id)
         assert refreshed_member.status == MemberStatus.ACTIVE
+    finally:
+        db.close()
+
+
+def test_yearly_subscription_uses_annual_charge_and_renews_in_12_months() -> None:
+    db = _build_session()
+    try:
+        owner = User(id=uuid4(), email="yearly@test.local", password_hash="hash")
+        db.add(owner)
+        db.commit()
+
+        service = BusinessControlWorkspaceService(db)
+        created_business = service.create_business(
+            actor_user_id=owner.id,
+            payload=CreateBusinessDTO(name="Soomei", slug="soomei-yearly"),
+        )
+        created_member = service.create_member(
+            actor_user_id=owner.id,
+            business_id=created_business.id,
+            payload=CreateMemberDTO(
+                full_name="Associado Annual",
+                email="annual@teste.local",
+                status=MemberStatus.LEAD,
+                joined_on=date(2026, 3, 1),
+            ),
+        )
+        created_plan = service.create_membership_plan(
+            actor_user_id=owner.id,
+            business_id=created_business.id,
+            payload=UpsertMembershipPlanDTO(
+                name="Plano Annual",
+                description="Teste anual",
+                cadence=BillingCadence.YEARLY,
+                recurring_amount_cents=155_88,
+                activation_fee_cents=0,
+                billing_day=5,
+                grace_days=2,
+            ),
+        )
+
+        created_subscription = service.create_subscription(
+            actor_user_id=owner.id,
+            business_id=created_business.id,
+            payload=CreateSubscriptionDTO(
+                member_id=created_member.id,
+                membership_plan_id=created_plan.id,
+                started_on=date(2026, 3, 2),
+                first_due_on=date(2026, 3, 5),
+                price_override_cents=None,
+                notes="Teste anual",
+            ),
+        )
+
+        first_receivable = db.scalar(
+            select(Receivable).where(
+                Receivable.subscription_id == created_subscription.id,
+                Receivable.kind == ReceivableKind.RECURRING,
+            )
+        )
+        assert created_subscription.next_billing_on == date(2027, 3, 5)
+        generated_receivable = service.generate_next_receivable(
+            actor_user_id=owner.id,
+            business_id=created_business.id,
+            subscription_id=created_subscription.id,
+        )
+        refreshed_subscription = db.get(Subscription, created_subscription.id)
+
+        assert first_receivable is not None
+        assert first_receivable.description.startswith("Anuidade")
+        assert generated_receivable.description.startswith("Anuidade")
+        assert generated_receivable.due_on == date(2027, 3, 5)
+        assert refreshed_subscription is not None
+        assert refreshed_subscription.next_billing_on == date(2028, 3, 5)
     finally:
         db.close()
 

@@ -254,3 +254,67 @@ def test_record_receipt_creates_operating_cash_entry() -> None:
         assert dashboard.current_cash_cents >= plan.recurring_amount_cents
     finally:
         db.close()
+
+
+def test_themembers_one_time_sale_updates_cash_and_daily_growth() -> None:
+    db = _build_session()
+    try:
+        owner = User(id=uuid4(), email="growth@test.local", password_hash="hash")
+        db.add(owner)
+        db.commit()
+
+        service = BusinessControlFinanceService(db)
+        created_business = _seed_business(service, owner)
+        integration = service.create_checkout_integration(actor_user_id=owner.id, business_id=created_business.id)
+        today_iso = date.today().isoformat()
+        payload = {
+            "payload": {
+                "id": "evt-growth-001",
+                "event": "transaction.approved",
+                "data": {
+                    "customer": {
+                        "id": "cust-growth-001",
+                        "name": "Compradora Crescimento",
+                        "email": "growth-course@test.local",
+                    },
+                    "main_product": {
+                        "id": "curso-soomei",
+                        "reference_id": "TM-CURSO-SOOMEI",
+                        "title": "Curso Receita Recorrente",
+                    },
+                    "transaction": {
+                        "id": "TRX-GROWTH-001",
+                        "value": 2990,
+                        "method": "pix",
+                        "paid_at": f"{today_iso}T10:05:00Z",
+                    },
+                    "order": {
+                        "id": "ORD-GROWTH-001",
+                        "total": 2990,
+                        "created_at": f"{today_iso}T10:00:00Z",
+                    },
+                },
+            }
+        }
+
+        service.handle_checkout_webhook(
+            webhook_path_token=integration.integration.webhook_path_token,
+            signature=integration.webhook_secret or "",
+            body=payload,
+            request_id="req-growth",
+            source_ip="127.0.0.1",
+            user_agent="pytest",
+        )
+
+        cash_entries = service.list_cash_entries(owner_user_id=owner.id, business_id=created_business.id)
+        dashboard = service.build_dashboard(owner_user_id=owner.id, business_id=created_business.id)
+        receipt_entry = next(item for item in cash_entries if item.description.startswith("Recebimento: Produto TheMembers"))
+
+        assert receipt_entry.direction == TransactionDirection.INCOME
+        assert receipt_entry.amount_cents == 2990
+        assert dashboard.one_time_sales_this_month_cents == 2990
+        assert dashboard.revenue_today_cents == 2990
+        assert dashboard.new_members_today == 1
+        assert dashboard.daily_growth_points[-1].paid_orders_count == 1
+    finally:
+        db.close()

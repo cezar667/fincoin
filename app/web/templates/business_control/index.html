@@ -7,8 +7,8 @@
       <p class="text-[11px] uppercase tracking-[0.28em] text-cyan-100/70">Business Control</p>
       <h1 class="mt-2 text-2xl font-semibold text-white">Caixa, capital e jornada da Soomei em um painel so</h1>
       <p class="mt-3 text-sm leading-6 text-slate-200/88">
-        O modulo agora mostra quanto do credito ainda esta preservado, onde o caixa esta sendo consumido
-        e como a operacao comercial esta convertendo em recebimento real.
+        O modulo agora mostra quanto do credito ainda esta preservado, onde o caixa esta sendo consumido,
+        como a operacao comercial cresce no dia a dia e quais entradas ja foram conciliadas automaticamente.
       </p>
     </div>
     {% if active_business %}
@@ -31,6 +31,14 @@
 {% endif %}
 
 {% if active_business and dashboard %}
+{% set growth = namespace(max_revenue=1, max_volume=1) %}
+{% for point in dashboard.daily_growth_points %}
+  {% if point.revenue_cents > growth.max_revenue %}{% set growth.max_revenue = point.revenue_cents %}{% endif %}
+  {% if point.new_members_count > growth.max_volume %}{% set growth.max_volume = point.new_members_count %}{% endif %}
+  {% if point.new_subscriptions_count > growth.max_volume %}{% set growth.max_volume = point.new_subscriptions_count %}{% endif %}
+  {% if point.paid_orders_count > growth.max_volume %}{% set growth.max_volume = point.paid_orders_count %}{% endif %}
+{% endfor %}
+
 <section class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
   <article class="rounded-2xl bg-white p-4 shadow-sm">
     <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Caixa atual</p>
@@ -63,6 +71,114 @@
     <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Parcelas em 30 dias</p>
     <p class="mt-2 text-2xl font-semibold text-amber-700">{{ dashboard.financing_due_next_30_days_cents | brl }}</p>
     <p class="text-xs text-slate-500">{{ dashboard.upcoming_installments | length }} compromissos abertos no curto prazo</p>
+  </article>
+</section>
+
+<section class="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.18fr_0.82fr]">
+  <article class="rounded-[28px] bg-white p-5 shadow-sm">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <p class="text-[11px] uppercase tracking-[0.24em] text-slate-500">Crescimento diario</p>
+        <h2 class="mt-1 text-lg font-semibold">Receita, adesao e pagamentos em 14 dias</h2>
+      </div>
+      <span class="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">Webhook automatico</span>
+    </div>
+    <div class="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-5">
+      <article class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Receita hoje</p>
+        <p class="mt-2 text-lg font-semibold text-slate-900">{{ dashboard.revenue_today_cents | brl }}</p>
+      </article>
+      <article class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Receita 7 dias</p>
+        <p class="mt-2 text-lg font-semibold text-slate-900">{{ dashboard.revenue_last_7_days_cents | brl }}</p>
+      </article>
+      <article class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Associados hoje</p>
+        <p class="mt-2 text-lg font-semibold text-slate-900">{{ dashboard.new_members_today }}</p>
+      </article>
+      <article class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Assinaturas hoje</p>
+        <p class="mt-2 text-lg font-semibold text-slate-900">{{ dashboard.new_subscriptions_today }}</p>
+      </article>
+      <article class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Avulsos no mes</p>
+        <p class="mt-2 text-lg font-semibold text-slate-900">{{ dashboard.one_time_sales_this_month_cents | brl }}</p>
+      </article>
+    </div>
+    <div class="growth-chart-shell mt-5">
+      <div class="growth-chart">
+        {% for point in dashboard.daily_growth_points %}
+        {% set revenue_height = (point.revenue_cents * 100 / growth.max_revenue) if growth.max_revenue else 8 %}
+        {% set volume_height = (point.paid_orders_count * 100 / growth.max_volume) if growth.max_volume else 8 %}
+        <article class="growth-day">
+          <div class="growth-bars">
+            <span class="growth-bar growth-bar-revenue" style="height: {{ [revenue_height, 8] | max }}%"></span>
+            <span class="growth-bar growth-bar-volume" style="height: {{ [volume_height, 8] | max }}%"></span>
+          </div>
+          <div class="growth-counters">
+            <span>A {{ point.new_members_count }}</span>
+            <span>S {{ point.new_subscriptions_count }}</span>
+            <span>P {{ point.paid_orders_count }}</span>
+          </div>
+          <p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{{ point.label }}</p>
+          <p class="mt-1 text-xs font-semibold text-slate-900">{{ point.revenue_cents | brl }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+    <p class="mt-3 text-xs text-slate-500">
+      Barra larga = receita recebida. Barra fina = quantidade de pagamentos. A = associados, S = assinaturas, P = pagamentos conciliados sem baixa manual.
+    </p>
+  </article>
+
+  <article class="rounded-[28px] bg-white p-5 shadow-sm">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <p class="text-[11px] uppercase tracking-[0.24em] text-slate-500">Motor de receita</p>
+        <h2 class="mt-1 text-lg font-semibold">Planos, produtos e cobranca</h2>
+      </div>
+      <a href="/app/business-control/integrations" class="text-xs font-semibold text-slate-500 hover:text-slate-900">Abrir integracoes</a>
+    </div>
+    <div class="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4 text-sm text-emerald-900">
+      Webhooks do checkout baixam automaticamente planos mensais, anuais e produtos avulsos em associado, contas a receber, recebimentos e caixa.
+    </div>
+    <div class="mt-4 space-y-3">
+      <article class="growth-metric-card">
+        <div>
+          <p class="growth-metric-label">MRR equivalente</p>
+          <p class="growth-metric-caption">Base mensal equivalente das assinaturas ativas.</p>
+        </div>
+        <p class="growth-metric-value">{{ dashboard.mrr_gross_cents | brl }}</p>
+      </article>
+      <article class="growth-metric-card">
+        <div>
+          <p class="growth-metric-label">Recebido no mes</p>
+          <p class="growth-metric-caption">Receita efetivamente conciliada no periodo corrente.</p>
+        </div>
+        <p class="growth-metric-value">{{ dashboard.received_this_month_cents | brl }}</p>
+      </article>
+      <article class="growth-metric-card">
+        <div>
+          <p class="growth-metric-label">Previsto no mes</p>
+          <p class="growth-metric-caption">Titulos do ciclo atual, pagos ou ainda em aberto.</p>
+        </div>
+        <p class="growth-metric-value">{{ dashboard.expected_this_month_cents | brl }}</p>
+      </article>
+      <article class="growth-metric-card">
+        <div>
+          <p class="growth-metric-label">Fila de cobranca</p>
+          <p class="growth-metric-caption">Titulos aguardando pagamento ou ja vencidos.</p>
+        </div>
+        <p class="growth-metric-value">{{ dashboard.open_receivables_count }}</p>
+      </article>
+      <article class="growth-metric-card">
+        <div>
+          <p class="growth-metric-label">Inadimplencia</p>
+          <p class="growth-metric-caption">{{ dashboard.overdue_count }} titulo(s) exigindo acao de retencao.</p>
+        </div>
+        <p class="growth-metric-value">{{ dashboard.overdue_cents | brl }}</p>
+      </article>
+    </div>
   </article>
 </section>
 
@@ -146,7 +262,7 @@
           <div class="flex items-start justify-between gap-2 text-sm">
             <div>
               <p class="font-medium text-slate-900">{{ entry.description }}</p>
-              <p class="text-xs text-slate-500">{{ entry.occurred_on.strftime('%d/%m/%Y') }}{% if entry.category %} · {{ entry.category.name }}{% endif %}</p>
+              <p class="text-xs text-slate-500">{{ entry.occurred_on.strftime('%d/%m/%Y') }}{% if entry.category %} &middot; {{ entry.category.name }}{% endif %}</p>
             </div>
             <p class="{% if entry.direction.value == 'INCOME' %}text-emerald-700{% else %}text-rose-700{% endif %}">
               {% if entry.direction.value == 'INCOME' %}+{% else %}-{% endif %}{{ entry.amount_cents | brl }}
@@ -220,7 +336,7 @@
       <article class="rounded-2xl border border-slate-200 p-3">
         <p class="text-sm font-semibold text-slate-900">{{ snapshot.funding.name }}</p>
         <p class="mt-1 text-xs text-slate-500">
-          {% if snapshot.funding.lender_name %}{{ snapshot.funding.lender_name }} · {% endif %}
+          {% if snapshot.funding.lender_name %}{{ snapshot.funding.lender_name }} &middot; {% endif %}
           desembolso {{ snapshot.funding.disbursed_on.strftime('%d/%m/%Y') }}
         </p>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
@@ -230,7 +346,7 @@
           <div class="rounded-xl bg-slate-50 p-2">Capital preservado<br><span class="font-semibold text-slate-900">{{ snapshot.preserved_credit_cents | brl }}</span></div>
         </div>
         {% if snapshot.next_installment %}
-        <p class="mt-3 text-xs text-amber-700">Proxima parcela: {{ snapshot.next_installment.due_on.strftime('%d/%m/%Y') }} · {{ snapshot.next_installment.amount_due_cents | brl }}</p>
+        <p class="mt-3 text-xs text-amber-700">Proxima parcela: {{ snapshot.next_installment.due_on.strftime('%d/%m/%Y') }} &middot; {{ snapshot.next_installment.amount_due_cents | brl }}</p>
         {% endif %}
       </article>
       {% else %}
@@ -304,7 +420,7 @@
       {% for log in dashboard.recent_audits %}
       <article class="rounded-2xl border border-slate-200 p-3">
         <p class="text-sm font-semibold text-slate-900">{{ log.summary }}</p>
-        <p class="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">{{ log.action.value }} · {{ log.entity_type }}</p>
+        <p class="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">{{ log.action.value }} &middot; {{ log.entity_type }}</p>
       </article>
       {% else %}
       <article class="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">

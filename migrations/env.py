@@ -56,14 +56,14 @@ def _schema_supports_0006(inspector) -> bool:
 def _infer_existing_revision(connection) -> str | None:
     inspector = inspect(connection)
     tables = set(inspector.get_table_names())
-    if _schema_supports_0007(inspector):
-        return "20260313_0007"
-    if _schema_supports_0006(inspector):
-        return "20260313_0006"
     if "alembic_version" in tables:
         version_rows = connection.execute(text("SELECT version_num FROM alembic_version")).fetchall()
         if version_rows:
             return str(version_rows[0][0])
+    if _schema_supports_0007(inspector):
+        return "20260313_0007"
+    if _schema_supports_0006(inspector):
+        return "20260313_0006"
 
     metadata_tables = {table.name for table in target_metadata.sorted_tables}
     if metadata_tables.issubset(tables):

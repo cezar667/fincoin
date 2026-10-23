@@ -44,6 +44,17 @@ SOOMEI_MEMBERSHIP_PLANS = [
         "grace_days": 3,
     },
     {
+        "name": "Soomei Annual",
+        "description": "Plano anual com permanencia, melhor ticket e cobranca concentrada.",
+        "external_product_id": "soomei-annual",
+        "external_reference_id": "TM-SOOMEI-ANNUAL",
+        "cadence": BillingCadence.YEARLY,
+        "recurring_amount_cents": 155_88,
+        "activation_fee_cents": 0,
+        "billing_day": 5,
+        "grace_days": 3,
+    },
+    {
         "name": "Soomei Prime",
         "description": "Plano com maior valor mensal para operacao premium e melhor margem.",
         "external_product_id": "soomei-prime",
@@ -160,7 +171,7 @@ class BusinessControlWorkspaceService(BusinessControlService):
         active_subscription_rows = [
             item for item in subscription_rows if item.status == SubscriptionStatus.ACTIVE
         ]
-        mrr_gross_cents = sum(self._subscription_amount_cents(item) for item in active_subscription_rows)
+        mrr_gross_cents = sum(self._subscription_monthly_equivalent_cents(item) for item in active_subscription_rows)
 
         receivable_rows = list(
             self.db.scalars(
@@ -522,7 +533,11 @@ class BusinessControlWorkspaceService(BusinessControlService):
             member_id=member.id,
             membership_plan_id=plan.id,
             started_on=payload.started_on,
-            next_billing_on=self._add_months_with_day(payload.first_due_on, 1, plan.billing_day),
+            next_billing_on=self._advance_billing_date(
+                current_due_on=payload.first_due_on,
+                cadence=plan.cadence,
+                billing_day=plan.billing_day,
+            ),
             price_override_cents=payload.price_override_cents,
             notes=payload.notes,
         )
@@ -552,7 +567,7 @@ class BusinessControlWorkspaceService(BusinessControlService):
             member_id=member.id,
             subscription_id=row.id,
             kind=ReceivableKind.RECURRING,
-            description=f"Mensalidade {plan.name} - {member.full_name}",
+            description=f"{self._subscription_charge_label(plan)} {plan.name} - {member.full_name}",
             amount_cents=recurring_amount,
             due_on=payload.first_due_on,
             issued_on=payload.started_on,
@@ -634,12 +649,16 @@ class BusinessControlWorkspaceService(BusinessControlService):
             member_id=member.id,
             subscription_id=subscription.id,
             kind=ReceivableKind.RECURRING,
-            description=f"Mensalidade {plan.name} - {member.full_name}",
+            description=f"{self._subscription_charge_label(plan)} {plan.name} - {member.full_name}",
             amount_cents=self._subscription_amount_cents(subscription),
             due_on=subscription.next_billing_on,
             issued_on=date.today(),
         )
-        subscription.next_billing_on = self._add_months_with_day(subscription.next_billing_on, 1, plan.billing_day)
+        subscription.next_billing_on = self._advance_billing_date(
+            current_due_on=subscription.next_billing_on,
+            cadence=plan.cadence,
+            billing_day=plan.billing_day,
+        )
         self.db.add(subscription)
         self._add_audit(
             business_id=business_id,
@@ -932,6 +951,22 @@ class BusinessControlWorkspaceService(BusinessControlService):
     def _subscription_amount_cents(self, row: Subscription) -> int:
         return row.price_override_cents or row.membership_plan.recurring_amount_cents
 
+    def _subscription_monthly_equivalent_cents(self, row: Subscription) -> int:
+        base_amount = self._subscription_amount_cents(row)
+        if row.membership_plan.cadence == BillingCadence.YEARLY:
+            return int(round(base_amount / 12))
+        return base_amount
+
+    @staticmethod
+    def _subscription_charge_label(plan: MembershipPlan) -> str:
+        if plan.cadence == BillingCadence.YEARLY:
+            return "Anuidade"
+        return "Mensalidade"
+
+    @classmethod
+    def _advance_billing_date(cls, *, current_due_on: date, cadence: BillingCadence, billing_day: int) -> date:
+        return cls._add_months_with_day(current_due_on, cls._cadence_months(cadence), billing_day)
+
     @staticmethod
     def _build_subscription_row(
         *,
@@ -984,6 +1019,12 @@ class BusinessControlWorkspaceService(BusinessControlService):
         target_month = Month.from_any_date(value).add_months(months).value
         last_day = calendar.monthrange(target_month.year, target_month.month)[1]
         return date(target_month.year, target_month.month, min(day, last_day))
+
+    @staticmethod
+    def _cadence_months(cadence: BillingCadence) -> int:
+        if cadence == BillingCadence.YEARLY:
+            return 12
+        return 1
 
     @staticmethod
     def _format_brl(cents: int) -> str:

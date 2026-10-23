@@ -6,8 +6,10 @@ from app.application.dto.business_control_dto import (
     CreateBusinessFundingDTO,
     CreateMemberDTO,
     CreateSubscriptionDTO,
+    UpsertBusinessCategoryDTO,
     UpsertMembershipPlanDTO,
 )
+from app.application.use_cases.business_control import SOOMEI_CATEGORIES
 from app.application.use_cases.business_control_finance import BusinessControlFinanceService
 from app.infrastructure.auth.password import hash_password
 from app.infrastructure.db.base import Base
@@ -35,6 +37,7 @@ def _ensure_demo_business(db, user: User) -> None:
     service = BusinessControlFinanceService(db)
     plan_mapping = {
         "Soomei Start": {"external_product_id": "soomei-start", "external_reference_id": "TM-SOOMEI-START"},
+        "Soomei Annual": {"external_product_id": "soomei-annual", "external_reference_id": "TM-SOOMEI-ANNUAL"},
         "Soomei Prime": {"external_product_id": "soomei-prime", "external_reference_id": "TM-SOOMEI-PRIME"},
     }
     existing_business = db.query(Business).filter(Business.owner_user_id == user.id, Business.slug == "soomei").first()
@@ -55,6 +58,25 @@ def _ensure_demo_business(db, user: User) -> None:
             business_id=existing_business.id,
             request_id=None,
         )
+        existing_categories = {
+            item.code
+            for item in db.query(BusinessCategory).filter(BusinessCategory.business_id == existing_business.id).all()
+            if item.code
+        }
+        for template in SOOMEI_CATEGORIES:
+            category_code = template.get("code")
+            if not category_code or category_code in existing_categories:
+                continue
+            service.create_category(
+                actor_user_id=user.id,
+                business_id=existing_business.id,
+                payload=UpsertBusinessCategoryDTO(
+                    code=template["code"],
+                    name=template["name"],
+                    kind=template["kind"],
+                    description=template.get("description"),
+                ),
+            )
         for current_plan in service.list_membership_plans(owner_user_id=user.id, business_id=existing_business.id):
             mapping = plan_mapping.get(current_plan.name)
             if mapping is None:

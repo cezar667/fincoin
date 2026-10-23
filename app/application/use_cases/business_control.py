@@ -64,6 +64,12 @@ SOOMEI_CATEGORIES = [
         "description": "Receita eventual de substituicao de cartao.",
     },
     {
+        "code": "PRD",
+        "name": "Produtos e cursos",
+        "kind": BusinessCategoryKind.NON_RECURRING_REVENUE,
+        "description": "Receita avulsa de cursos, upgrades e outros produtos digitais.",
+    },
+    {
         "code": "DESC",
         "name": "Descontos comerciais",
         "kind": BusinessCategoryKind.DISCOUNT,

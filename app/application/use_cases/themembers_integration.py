@@ -365,23 +365,34 @@ class TheMembersIntegrationService(BusinessControlWorkspaceService):
             status=MemberStatus.ACTIVE,
             request_id=event.request_id,
         )
-        plan = self._resolve_plan_from_payload(business_id=integration.business_id, data=data)
-        subscription = self._upsert_subscription_from_payload(
-            business_id=integration.business_id,
-            member=member,
-            plan=plan,
-            data=data,
-            request_id=event.request_id,
-        )
-        if self._has_order_payment(data):
-            self._sync_payment_from_payload(
+        plan = None
+        subscription = None
+        if self._payload_has_subscription(data):
+            plan = self._resolve_plan_from_payload(business_id=integration.business_id, data=data)
+            subscription = self._upsert_subscription_from_payload(
                 business_id=integration.business_id,
                 member=member,
                 plan=plan,
-                subscription=subscription,
                 data=data,
                 request_id=event.request_id,
             )
+        if self._has_order_payment(data):
+            if plan is not None and subscription is not None:
+                self._sync_subscription_payment_from_payload(
+                    business_id=integration.business_id,
+                    member=member,
+                    plan=plan,
+                    subscription=subscription,
+                    data=data,
+                    request_id=event.request_id,
+                )
+            else:
+                self._sync_one_time_payment_from_payload(
+                    business_id=integration.business_id,
+                    member=member,
+                    data=data,
+                    request_id=event.request_id,
+                )
         return WebhookEventStatus.PROCESSED, f"Acesso liberado para '{member.full_name}'."
 
     def _process_transaction_approved(
@@ -398,24 +409,32 @@ class TheMembersIntegrationService(BusinessControlWorkspaceService):
             status=MemberStatus.ACTIVE,
             request_id=event.request_id,
         )
-        plan = self._resolve_plan_from_payload(business_id=integration.business_id, data=data)
-        subscription = self._upsert_subscription_from_payload(
-            business_id=integration.business_id,
-            member=member,
-            plan=plan,
-            data=data,
-            request_id=event.request_id,
-        )
         if not self._has_order_payment(data):
             return WebhookEventStatus.IGNORED, "Pagamento aprovado sem dados suficientes para conciliacao."
-        self._sync_payment_from_payload(
-            business_id=integration.business_id,
-            member=member,
-            plan=plan,
-            subscription=subscription,
-            data=data,
-            request_id=event.request_id,
-        )
+        if self._payload_has_subscription(data):
+            plan = self._resolve_plan_from_payload(business_id=integration.business_id, data=data)
+            subscription = self._upsert_subscription_from_payload(
+                business_id=integration.business_id,
+                member=member,
+                plan=plan,
+                data=data,
+                request_id=event.request_id,
+            )
+            self._sync_subscription_payment_from_payload(
+                business_id=integration.business_id,
+                member=member,
+                plan=plan,
+                subscription=subscription,
+                data=data,
+                request_id=event.request_id,
+            )
+        else:
+            self._sync_one_time_payment_from_payload(
+                business_id=integration.business_id,
+                member=member,
+                data=data,
+                request_id=event.request_id,
+            )
         return WebhookEventStatus.PROCESSED, f"Pagamento conciliado para '{member.full_name}'."
 
     def _process_cancel_request(
@@ -529,7 +548,7 @@ class TheMembersIntegrationService(BusinessControlWorkspaceService):
         )
         return WebhookEventStatus.PROCESSED, f"Estorno conciliado para '{receivable.description}'."
 
-    def _sync_payment_from_payload(
+    def _sync_subscription_payment_from_payload(
         self,
         *,
         business_id: UUID,
@@ -564,6 +583,7 @@ class TheMembersIntegrationService(BusinessControlWorkspaceService):
             business_id=business_id,
             member=member,
             subscription=subscription,
+            kind=ReceivableKind.RECURRING,
             description=f"Checkout TheMembers - {plan.name} - {member.full_name}",
             amount_cents=amount_cents,
             due_on=due_on,
@@ -579,7 +599,11 @@ class TheMembersIntegrationService(BusinessControlWorkspaceService):
             fallback_received_on=self._coerce_date(transaction.get("paid_at")) or due_on,
         )
         if receipt is not None and subscription.status == SubscriptionStatus.ACTIVE:
-            subscription.next_billing_on = self._add_months_with_day(due_on, 1, plan.billing_day)
+            subscription.next_billing_on = self._advance_billing_date(
+                current_due_on=due_on,
+                cadence=plan.cadence,
+                billing_day=plan.billing_day,
+            )
             self.db.add(subscription)
             self._add_audit(
                 business_id=business_id,
@@ -592,12 +616,61 @@ class TheMembersIntegrationService(BusinessControlWorkspaceService):
                 request_id=request_id,
             )
 
+    def _sync_one_time_payment_from_payload(
+        self,
+        *,
+        business_id: UUID,
+        member: Member,
+        data: dict[str, Any],
+        request_id: str | None,
+    ) -> None:
+        transaction = data.get("transaction") or {}
+        order = data.get("order") or {}
+        due_on = self._coerce_date(order.get("created_at") or transaction.get("paid_at") or transaction.get("created_at")) or date.today()
+        issued_on = self._coerce_date(order.get("created_at") or transaction.get("created_at")) or due_on
+        amount_cents = self._cents_value(transaction.get("value") or order.get("total"))
+        if amount_cents <= 0:
+            raise ValueError("Valor do pagamento invalido no payload do TheMembers.")
+
+        title = self._checkout_item_title(data)
+        receivable = self._get_or_create_external_receivable(
+            business_id=business_id,
+            member=member,
+            subscription=None,
+            kind=ReceivableKind.ADJUSTMENT,
+            description=f"Produto TheMembers - {title} - {member.full_name}",
+            amount_cents=amount_cents,
+            due_on=due_on,
+            issued_on=issued_on,
+            external_invoice_id=self._string_value((data.get("invoice") or {}).get("code")),
+            external_order_id=self._string_value(order.get("id")),
+        )
+        receipt = self._record_external_receipt(
+            business_id=business_id,
+            receivable=receivable,
+            transaction=transaction,
+            fallback_amount_cents=amount_cents,
+            fallback_received_on=self._coerce_date(transaction.get("paid_at")) or due_on,
+        )
+        if receipt is not None:
+            self._add_audit(
+                business_id=business_id,
+                actor_user_id=None,
+                action=AuditAction.CREATE,
+                entity_type="Receivable",
+                entity_id=receivable.id,
+                summary="Venda avulsa conciliada via TheMembers.",
+                details={"description": receivable.description, "amount_cents": amount_cents},
+                request_id=request_id,
+            )
+
     def _get_or_create_external_receivable(
         self,
         *,
         business_id: UUID,
         member: Member,
-        subscription: Subscription,
+        subscription: Subscription | None,
+        kind: ReceivableKind,
         description: str,
         amount_cents: int,
         due_on: date,
@@ -622,19 +695,25 @@ class TheMembersIntegrationService(BusinessControlWorkspaceService):
             )
         if row is None:
             competency_month = Month.from_any_date(due_on).value
-            row = self.db.scalar(
-                select(Receivable).where(
-                    Receivable.subscription_id == subscription.id,
-                    Receivable.kind == ReceivableKind.RECURRING,
-                    Receivable.competency_month == competency_month,
-                )
+            stmt = select(Receivable).where(
+                Receivable.member_id == member.id,
+                Receivable.kind == kind,
+                Receivable.competency_month == competency_month,
             )
+            if subscription is None:
+                stmt = stmt.where(
+                    Receivable.subscription_id.is_(None),
+                    func.lower(Receivable.description) == description.lower(),
+                )
+            else:
+                stmt = stmt.where(Receivable.subscription_id == subscription.id)
+            row = self.db.scalar(stmt)
         if row is None:
             row = self._create_receivable_row(
                 business_id=business_id,
                 member_id=member.id,
-                subscription_id=subscription.id,
-                kind=ReceivableKind.RECURRING,
+                subscription_id=subscription.id if subscription is not None else None,
+                kind=kind,
                 description=description,
                 amount_cents=amount_cents,
                 due_on=due_on,
@@ -825,7 +904,12 @@ class TheMembersIntegrationService(BusinessControlWorkspaceService):
                 member_id=member.id,
                 membership_plan_id=plan.id,
                 started_on=started_on,
-                next_billing_on=next_due or self._add_months_with_day(started_on, 1, plan.billing_day),
+                next_billing_on=next_due
+                or self._advance_billing_date(
+                    current_due_on=started_on,
+                    cadence=plan.cadence,
+                    billing_day=plan.billing_day,
+                ),
                 price_override_cents=None,
                 notes="Originada pelo checkout do TheMembers.",
                 external_subscription_id=external_subscription_id,
@@ -892,7 +976,13 @@ class TheMembersIntegrationService(BusinessControlWorkspaceService):
             )
         )
 
-    def _resolve_plan_from_payload(self, *, business_id: UUID, data: dict[str, Any]) -> MembershipPlan:
+    def _resolve_plan_from_payload(
+        self,
+        *,
+        business_id: UUID,
+        data: dict[str, Any],
+        required: bool = True,
+    ) -> MembershipPlan | None:
         product_candidates: list[dict[str, Any]] = []
         for key in ("main_product", "product"):
             value = data.get(key)
@@ -933,7 +1023,35 @@ class TheMembersIntegrationService(BusinessControlWorkspaceService):
                 )
                 if row is not None:
                     return row
-        raise ValueError("Plano do TheMembers nao mapeado. Configure product_id ou reference_id no plano.")
+        if required:
+            raise ValueError("Plano do TheMembers nao mapeado. Configure product_id ou reference_id no plano.")
+        return None
+
+    @staticmethod
+    def _payload_has_subscription(data: dict[str, Any]) -> bool:
+        subscription = data.get("subscription")
+        if not isinstance(subscription, dict):
+            return False
+        if subscription.get("code") or subscription.get("starts_at") or subscription.get("invoice"):
+            return True
+        product = subscription.get("product")
+        return isinstance(product, dict) and bool(product)
+
+    def _checkout_item_title(self, data: dict[str, Any]) -> str:
+        for key in ("main_product", "product"):
+            value = data.get(key)
+            if isinstance(value, dict):
+                title = self._string_value(value.get("title") or value.get("name"))
+                if title:
+                    return title
+        subscription_product = (data.get("subscription") or {}).get("product")
+        if isinstance(subscription_product, dict):
+            title = self._string_value(subscription_product.get("title") or subscription_product.get("name"))
+            if title:
+                return title
+        order = data.get("order") or {}
+        title = self._string_value(order.get("title") or order.get("name"))
+        return title or "Produto avulso"
 
     def _verify_checkout_signature(self, *, integration: BusinessIntegration, signature: str) -> None:
         settings = get_settings()

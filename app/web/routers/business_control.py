@@ -72,6 +72,7 @@ MEMBER_STATUS_LABELS = {
 
 BILLING_CADENCE_LABELS = {
     BillingCadence.MONTHLY: "Mensal",
+    BillingCadence.YEARLY: "Anual",
 }
 
 SUBSCRIPTION_STATUS_LABELS = {

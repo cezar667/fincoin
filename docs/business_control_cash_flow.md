@@ -8,6 +8,8 @@ Esta fase adiciona ao modulo `Business Control` o controle financeiro da empresa
 - uso do capital captado
 - financiamento com parcelas
 - visibilidade do caixa atual e das saidas por categoria/centro de custo
+- crescimento diario da receita e da base
+- baixa automatica das entradas vindas do checkout
 
 ## Rotas web
 
@@ -46,6 +48,18 @@ Esta fase adiciona ao modulo `Business Control` o controle financeiro da empresa
 - ao registrar um recebimento de associado o sistema:
   - mantem o contas a receber
   - cria uma entrada de caixa operacional
+- ao receber webhook do TheMembers o sistema:
+  - cria ou atualiza associado
+  - cria assinatura quando houver `subscription`
+  - cria ou reutiliza o titulo
+  - registra o recebimento
+  - cria a entrada de caixa automaticamente
+- produtos avulsos como cursos:
+  - nao criam assinatura
+  - entram como receita avulsa e alimentam o caixa
+- planos anuais:
+  - avancam a renovacao em 12 meses
+  - entram no `MRR` pelo valor mensal equivalente
 - lancamentos manuais podem ser vinculados a um financiamento para mostrar onde o credito foi consumido
 
 ## Indicadores expostos no dashboard
@@ -59,6 +73,12 @@ Esta fase adiciona ao modulo `Business Control` o controle financeiro da empresa
 - divida em aberto
 - parcelas com vencimento nos proximos 30 dias
 - distribuicao de gastos por categoria e centro de custo
+- receita de hoje
+- receita dos ultimos 7 dias
+- novos associados no dia
+- novas assinaturas no dia
+- vendas avulsas no mes
+- trilha visual de crescimento dos ultimos 14 dias
 
 ## Seed demo
 
@@ -67,7 +87,8 @@ O `scripts/seed_demo.py` agora cria:
 - a empresa demo `Soomei`
 - um credito inicial de `R$ 100.000,00`
 - gastos iniciais vinculados ao credito
-- associados, planos, assinatura e contas a receber
+- associados, planos mensal e anual, assinatura e contas a receber
+- categorias de receita recorrente e produto avulso
 
 ## Roteiro de teste manual
 
@@ -87,6 +108,10 @@ O `scripts/seed_demo.py` agora cria:
 7. Acessar `/app/business-control/receivables`
    - registrar um recebimento
    - confirmar a entrada em `/app/business-control/cash-flow`
+8. Disparar um webhook `transaction.approved` do TheMembers para curso ou produto avulso
+   - confirmar que nao houve baixa manual
+   - confirmar nova entrada no caixa
+   - confirmar atualizacao dos cards de crescimento diario
 
 ## Testes automatizados
 
@@ -94,3 +119,4 @@ O `scripts/seed_demo.py` agora cria:
   - criacao do financiamento e da entrada de caixa
   - baixa da parcela com reflexo no caixa
   - recebimento operacional criando entrada no caixa
+  - venda avulsa via webhook refletindo em caixa e no painel de crescimento
