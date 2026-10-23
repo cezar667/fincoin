@@ -215,7 +215,7 @@ def test_month_details_explain_forecast_and_sort_expenses() -> None:
 
         assert {item.source_type for item in details[date(2026, 10, 1)]} == {
             "TRANSACTION",
-            "RECURRING",
+            "RECURRING_EXPENSE",
             "INSTALLMENT",
             "FINANCING",
             "DEBT",
@@ -224,7 +224,7 @@ def test_month_details_explain_forecast_and_sort_expenses() -> None:
         assert [item.source_type for item in october_expenses] == [
             "TRANSACTION",
             "TRANSACTION",
-            "RECURRING",
+            "RECURRING_EXPENSE",
             "INSTALLMENT",
             "FINANCING",
             "DEBT",
@@ -235,8 +235,10 @@ def test_month_details_explain_forecast_and_sort_expenses() -> None:
         ]
         assert [item.source_type for item in income_details[date(2026, 10, 1)]] == [
             "TRANSACTION",
-            "RECURRING",
+            "RECURRING_INCOME",
         ]
+        recurring_income_detail = income_details[date(2026, 10, 1)][1]
+        assert recurring_income_detail.source_label == "Receita recorrente"
         financing_detail = next(
             item for item in october_expenses if item.source_type == "FINANCING"
         )

@@ -91,7 +91,8 @@ class SQLAlchemyTransactionRepository:
 class SQLAlchemyForecastRepository:
     _SOURCE_ORDER: ClassVar[dict[str, int]] = {
         "TRANSACTION": 0,
-        "RECURRING": 1,
+        "RECURRING_INCOME": 1,
+        "RECURRING_EXPENSE": 1,
         "INSTALLMENT": 2,
         "FINANCING": 3,
         "DEBT": 4,
@@ -210,8 +211,8 @@ class SQLAlchemyForecastRepository:
                     ForecastFlowItemDTO(
                         month=month,
                         source_id=row.id,
-                        source_type="RECURRING",
-                        source_label="Recorrência",
+                        source_type="RECURRING_EXPENSE",
+                        source_label="Despesa recorrente",
                         description=row.name,
                         category_name=category.name,
                         detail=f"Previsto para o dia {row.day_of_month}",
@@ -378,8 +379,8 @@ class SQLAlchemyForecastRepository:
                     ForecastFlowItemDTO(
                         month=month,
                         source_id=row.id,
-                        source_type="RECURRING",
-                        source_label="Recorrência",
+                        source_type="RECURRING_INCOME",
+                        source_label="Receita recorrente",
                         description=row.name,
                         category_name=category.name,
                         detail=f"Previsto para o dia {row.day_of_month}",

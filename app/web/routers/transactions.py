@@ -59,6 +59,10 @@ TRANSACTION_DIRECTION_LABELS = {
     TransactionDirection.INCOME: "Entrada",
     TransactionDirection.EXPENSE: "Saida",
 }
+RECURRING_DIRECTION_LABELS = {
+    TransactionDirection.INCOME: "Receita recorrente",
+    TransactionDirection.EXPENSE: "Despesa recorrente",
+}
 INSTALLMENT_KIND_LABELS = {
     InstallmentKind.PURCHASE: "Compra parcelada",
     InstallmentKind.FINANCING: "Financiamento",
@@ -192,6 +196,13 @@ def _base_context(
         ],
         "transaction_direction_labels": {
             item.value: label for item, label in TRANSACTION_DIRECTION_LABELS.items()
+        },
+        "recurring_directions": [
+            {"value": item.value, "label": RECURRING_DIRECTION_LABELS[item]}
+            for item in TransactionDirection
+        ],
+        "recurring_direction_labels": {
+            item.value: label for item, label in RECURRING_DIRECTION_LABELS.items()
         },
         "direction_income_value": TransactionDirection.INCOME.value,
     }
@@ -458,6 +469,16 @@ def recurrences_page(
             .order_by(RecurringRule.created_at.desc())
         )
     )
+    income_rules = [
+        item
+        for item in recurring_rules
+        if item.direction == TransactionDirection.INCOME
+    ]
+    expense_rules = [
+        item
+        for item in recurring_rules
+        if item.direction == TransactionDirection.EXPENSE
+    ]
     t = request.app.state.templates
     return t.TemplateResponse(
         request=request,
@@ -473,6 +494,9 @@ def recurrences_page(
             "accounts": accounts,
             "categories": categories,
             "recurring_rules": recurring_rules,
+            "income_rules": income_rules,
+            "expense_rules": expense_rules,
+            "grouped_recurring_rules": income_rules + expense_rules,
             "account_name_map": {item.id: item.name for item in accounts},
             "category_name_map": {item.id: item.name for item in categories},
         },
@@ -1219,7 +1243,8 @@ def create_recurring_rule_form(
         db.flush()
         db.add(PlanRecurringRule(plan_id=plan.id, recurring_rule_id=row.id))
         db.commit()
-        _set_flash(request, kind="ok", message="Recorrencia criada com sucesso.")
+        recurring_type = RECURRING_DIRECTION_LABELS[direction_enum]
+        _set_flash(request, kind="ok", message=f"{recurring_type} criada com sucesso.")
     except Exception as exc:
         db.rollback()
         _set_flash(request, kind="error", message=f"Falha ao criar recorrencia: {exc}")
@@ -1297,7 +1322,8 @@ def update_recurring_rule_form(
         row.cadence = RecurringCadence.MONTHLY
         db.add(row)
         db.commit()
-        _set_flash(request, kind="ok", message="Recorrencia atualizada.")
+        recurring_type = RECURRING_DIRECTION_LABELS[direction_enum]
+        _set_flash(request, kind="ok", message=f"{recurring_type} atualizada.")
     except Exception as exc:
         db.rollback()
         _set_flash(
