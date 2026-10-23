@@ -16,7 +16,7 @@ from app.infrastructure.db.models.account import Account
 from app.infrastructure.db.models.category import Category
 from app.infrastructure.db.models.debt import Debt
 from app.infrastructure.db.models.debt_plan import DebtPlan
-from app.infrastructure.db.models.enums import TransactionDirection
+from app.infrastructure.db.models.enums import InstallmentKind, TransactionDirection
 from app.infrastructure.db.models.installment import Installment
 from app.infrastructure.db.models.plan_installment import PlanInstallment
 from app.infrastructure.db.models.plan_recurring_rule import PlanRecurringRule
@@ -93,7 +93,8 @@ class SQLAlchemyForecastRepository:
         "TRANSACTION": 0,
         "RECURRING": 1,
         "INSTALLMENT": 2,
-        "DEBT": 3,
+        "FINANCING": 3,
+        "DEBT": 4,
     }
 
     def __init__(self, db: Session) -> None:
@@ -243,11 +244,27 @@ class SQLAlchemyForecastRepository:
                     ForecastFlowItemDTO(
                         month=month,
                         source_id=row.id,
-                        source_type="INSTALLMENT",
-                        source_label="Parcela",
-                        description=row.description or "Compra parcelada",
+                        source_type=(
+                            "FINANCING"
+                            if row.kind == InstallmentKind.FINANCING
+                            else "INSTALLMENT"
+                        ),
+                        source_label=(
+                            "Financiamento"
+                            if row.kind == InstallmentKind.FINANCING
+                            else "Parcela"
+                        ),
+                        description=row.description
+                        or (
+                            "Financiamento"
+                            if row.kind == InstallmentKind.FINANCING
+                            else "Compra parcelada"
+                        ),
                         category_name=category.name,
-                        detail=f"Parcela {index + 1}/{row.total_parts}",
+                        detail=(
+                            f"Parcela {index + 1}/{row.total_parts}"
+                            + (f" · {row.creditor}" if row.creditor else "")
+                        ),
                         amount_cents=row.part_amount_cents,
                         edit_url="/app/transactions/installments",
                     )

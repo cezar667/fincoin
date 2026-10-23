@@ -15,6 +15,7 @@ from app.infrastructure.db.models.enums import (
     AccountType,
     CategoryKind,
     DebtKind,
+    InstallmentKind,
     RecurringCadence,
     TransactionDirection,
 )
@@ -126,6 +127,21 @@ def test_month_details_explain_forecast_and_sort_expenses() -> None:
             part_amount_cents=300_00,
             first_competency_month=date(2026, 10, 1),
         )
+        financing = Installment(
+            id=uuid4(),
+            user_id=user.id,
+            credit_card_id=None,
+            category_id=category.id,
+            kind=InstallmentKind.FINANCING,
+            description="Financiamento do carro",
+            creditor="Banco",
+            financed_amount_cents=20_000_00,
+            interest_apr_bps=1_200,
+            due_day=15,
+            total_parts=2,
+            part_amount_cents=600_00,
+            first_competency_month=date(2026, 10, 1),
+        )
         debt = Debt(
             id=uuid4(),
             user_id=user.id,
@@ -161,6 +177,7 @@ def test_month_details_explain_forecast_and_sort_expenses() -> None:
                 recurring,
                 income_recurring,
                 installment,
+                financing,
                 debt,
                 debt_plan,
                 PlanTransaction(plan_id=plan.id, transaction_id=transaction.id),
@@ -171,6 +188,7 @@ def test_month_details_explain_forecast_and_sort_expenses() -> None:
                     plan_id=plan.id, recurring_rule_id=income_recurring.id
                 ),
                 PlanInstallment(plan_id=plan.id, installment_id=installment.id),
+                PlanInstallment(plan_id=plan.id, installment_id=financing.id),
             ]
         )
         db.commit()
@@ -199,6 +217,7 @@ def test_month_details_explain_forecast_and_sort_expenses() -> None:
             "TRANSACTION",
             "RECURRING",
             "INSTALLMENT",
+            "FINANCING",
             "DEBT",
         }
         october_expenses = details[date(2026, 10, 1)]
@@ -207,6 +226,7 @@ def test_month_details_explain_forecast_and_sort_expenses() -> None:
             "TRANSACTION",
             "RECURRING",
             "INSTALLMENT",
+            "FINANCING",
             "DEBT",
         ]
         assert [item.category_name for item in october_expenses[:2]] == [
@@ -217,6 +237,11 @@ def test_month_details_explain_forecast_and_sort_expenses() -> None:
             "TRANSACTION",
             "RECURRING",
         ]
+        financing_detail = next(
+            item for item in october_expenses if item.source_type == "FINANCING"
+        )
+        assert financing_detail.source_label == "Financiamento"
+        assert financing_detail.detail == "Parcela 1/2 · Banco"
         for month in (date(2026, 10, 1), date(2026, 11, 1)):
             assert (
                 sum(item.amount_cents for item in details[month])

@@ -124,7 +124,7 @@
               <a href="/app/transactions/accounts" class="block rounded-lg px-2 py-1.5 transition {% if current_path == '/app/transactions/accounts' %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Contas</a>
               <a href="/app/transactions/categories" class="block rounded-lg px-2 py-1.5 transition {% if current_path == '/app/transactions/categories' %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Categorias</a>
               <a href="/app/transactions/cards" class="block rounded-lg px-2 py-1.5 transition {% if current_path == '/app/transactions/cards' %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Cartoes</a>
-              <a href="/app/transactions/installments" class="block rounded-lg px-2 py-1.5 transition {% if current_path == '/app/transactions/installments' %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Parcelamentos</a>
+              <a href="/app/transactions/installments" class="block rounded-lg px-2 py-1.5 transition {% if current_path == '/app/transactions/installments' %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Parcelas e financiamentos</a>
               <a href="/app/transactions/recurrences" class="block rounded-lg px-2 py-1.5 transition {% if current_path == '/app/transactions/recurrences' %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Recorrencias</a>
               <a href="/app/import" class="block rounded-lg px-2 py-1.5 transition {% if current_path.startswith('/app/import') %}bg-white/15 text-white{% else %}text-slate-200/80 hover:bg-white/10{% endif %}">Importar CSV</a>
             </div>
@@ -173,7 +173,7 @@
             <a href="/app/business-control/subscriptions" class="rounded-lg border border-white/10 px-2 py-2 text-center font-semibold text-slate-100 transition hover:bg-white/10">Assinatura</a>
             {% else %}
             <a href="/app/transactions#novo-lancamento" class="rounded-lg border border-white/10 px-2 py-2 text-center font-semibold text-slate-100 transition hover:bg-white/10">Novo lancamento</a>
-            <a href="/app/transactions/installments" class="rounded-lg border border-white/10 px-2 py-2 text-center font-semibold text-slate-100 transition hover:bg-white/10">Parcelamento</a>
+            <a href="/app/transactions/installments" class="rounded-lg border border-white/10 px-2 py-2 text-center font-semibold text-slate-100 transition hover:bg-white/10">Parcelas / financiamento</a>
             {% endif %}
           </div>
         </div>
@@ -233,7 +233,7 @@
         <a href="/app/business-control/receivables" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Contas a receber</a>
         {% else %}
         <a href="/app/transactions#novo-lancamento" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Novo lancamento</a>
-        <a href="/app/transactions/installments" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Novo parcelamento</a>
+        <a href="/app/transactions/installments" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Nova parcela ou financiamento</a>
         <a href="/app/transactions/recurrences" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Nova recorrencia</a>
         <a href="/app/prosperity" class="block rounded-xl border border-transparent bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-200 hover:bg-white">Plano de prosperidade</a>
         <a href="/app/plans" class="block rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-200 hover:bg-white">Trocar planejamento</a>

@@ -1,5 +1,5 @@
 from datetime import date
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
@@ -7,7 +7,11 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.application.dto.transaction_dto import CreateTransactionDTO, TransactionReadDTO, UpdateTransactionDTO
+from app.application.dto.transaction_dto import (
+    CreateTransactionDTO,
+    TransactionReadDTO,
+    UpdateTransactionDTO,
+)
 from app.application.use_cases.create_transaction import CreateTransactionUseCase
 from app.application.use_cases.update_transaction import UpdateTransactionUseCase
 from app.domain.value_objects.month import Month
@@ -16,7 +20,13 @@ from app.infrastructure.auth.session import get_current_user_id
 from app.infrastructure.db.models.account import Account
 from app.infrastructure.db.models.category import Category
 from app.infrastructure.db.models.credit_card import CreditCard
-from app.infrastructure.db.models.enums import AccountType, CategoryKind, RecurringCadence, TransactionDirection
+from app.infrastructure.db.models.enums import (
+    AccountType,
+    CategoryKind,
+    InstallmentKind,
+    RecurringCadence,
+    TransactionDirection,
+)
 from app.infrastructure.db.models.financial_plan import FinancialPlan
 from app.infrastructure.db.models.installment import Installment
 from app.infrastructure.db.models.plan_installment import PlanInstallment
@@ -25,8 +35,14 @@ from app.infrastructure.db.models.plan_transaction import PlanTransaction
 from app.infrastructure.db.models.recurring_rule import RecurringRule
 from app.infrastructure.db.models.transaction import Transaction
 from app.infrastructure.db.session import get_db
-from app.infrastructure.repositories.transaction_repo import SQLAlchemyTransactionRepository
-from app.web.routers._utils import parse_year_month, plan_id_from_session, user_id_from_session
+from app.infrastructure.repositories.transaction_repo import (
+    SQLAlchemyTransactionRepository,
+)
+from app.web.routers._utils import (
+    parse_year_month,
+    plan_id_from_session,
+    user_id_from_session,
+)
 
 router = APIRouter()
 
@@ -42,6 +58,10 @@ CATEGORY_KIND_LABELS = {
 TRANSACTION_DIRECTION_LABELS = {
     TransactionDirection.INCOME: "Entrada",
     TransactionDirection.EXPENSE: "Saida",
+}
+INSTALLMENT_KIND_LABELS = {
+    InstallmentKind.PURCHASE: "Compra parcelada",
+    InstallmentKind.FINANCING: "Financiamento",
 }
 
 
@@ -84,13 +104,42 @@ def _signed_money_to_cents(value: str) -> int:
     return int((parsed * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
+def _optional_money_to_cents(value: str | None) -> int | None:
+    if value is None or not value.strip():
+        return None
+    return _money_to_cents(value)
+
+
+def _optional_apr_to_bps(value: str | None) -> int | None:
+    if value is None or not value.strip():
+        return None
+    try:
+        parsed = Decimal(value.replace(",", ".").strip())
+    except (InvalidOperation, AttributeError) as exc:
+        raise ValueError("Taxa de juros invalida.") from exc
+    if parsed < 0:
+        raise ValueError("Taxa de juros nao pode ser negativa.")
+    return int((parsed * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def _optional_uuid(value: str | None) -> UUID | None:
+    if value is None or not value.strip():
+        return None
+    try:
+        return UUID(value.strip())
+    except ValueError as exc:
+        raise ValueError("Cartao invalido.") from exc
+
+
 def _is_checked(value: str | None) -> bool:
     if value is None:
         return False
     return value.strip().lower() in {"1", "true", "on", "yes", "sim"}
 
 
-def _resolve_user_and_plan(request: Request, db: Session) -> tuple[UUID, FinancialPlan] | RedirectResponse:
+def _resolve_user_and_plan(
+    request: Request, db: Session
+) -> tuple[UUID, FinancialPlan] | RedirectResponse:
     user_id = user_id_from_session(request)
     if user_id is None:
         return RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
@@ -123,10 +172,20 @@ def _base_context(
         "csrf_token": get_or_create_csrf_token(request),
         "flash": flash,
         "today": date.today(),
-        "account_types": [{"value": item.value, "label": ACCOUNT_TYPE_LABELS[item]} for item in AccountType],
-        "account_type_labels": {item.value: label for item, label in ACCOUNT_TYPE_LABELS.items()},
-        "category_kinds": [{"value": item.value, "label": CATEGORY_KIND_LABELS[item]} for item in CategoryKind],
-        "category_kind_labels": {item.value: label for item, label in CATEGORY_KIND_LABELS.items()},
+        "account_types": [
+            {"value": item.value, "label": ACCOUNT_TYPE_LABELS[item]}
+            for item in AccountType
+        ],
+        "account_type_labels": {
+            item.value: label for item, label in ACCOUNT_TYPE_LABELS.items()
+        },
+        "category_kinds": [
+            {"value": item.value, "label": CATEGORY_KIND_LABELS[item]}
+            for item in CategoryKind
+        ],
+        "category_kind_labels": {
+            item.value: label for item, label in CATEGORY_KIND_LABELS.items()
+        },
         "transaction_directions": [
             {"value": item.value, "label": TRANSACTION_DIRECTION_LABELS[item]}
             for item in TransactionDirection
@@ -161,14 +220,30 @@ def transactions_page(
     if selected_direction:
         items = [item for item in items if item.direction.value == selected_direction]
 
-    accounts = list(db.scalars(select(Account).where(Account.user_id == user_id).order_by(Account.name.asc())))
-    categories = list(
+    accounts = list(
         db.scalars(
-            select(Category).where(Category.user_id == user_id).order_by(Category.kind.asc(), Category.name.asc())
+            select(Account)
+            .where(Account.user_id == user_id)
+            .order_by(Account.name.asc())
         )
     )
-    income_total = sum(item.amount_cents for item in items if item.direction == TransactionDirection.INCOME)
-    expense_total = sum(item.amount_cents for item in items if item.direction == TransactionDirection.EXPENSE)
+    categories = list(
+        db.scalars(
+            select(Category)
+            .where(Category.user_id == user_id)
+            .order_by(Category.kind.asc(), Category.name.asc())
+        )
+    )
+    income_total = sum(
+        item.amount_cents
+        for item in items
+        if item.direction == TransactionDirection.INCOME
+    )
+    expense_total = sum(
+        item.amount_cents
+        for item in items
+        if item.direction == TransactionDirection.EXPENSE
+    )
 
     t = request.app.state.templates
     return t.TemplateResponse(
@@ -202,7 +277,13 @@ def accounts_page(request: Request, db: Session = Depends(get_db)):
     if isinstance(session_ctx, RedirectResponse):
         return session_ctx
     user_id, plan = session_ctx
-    accounts = list(db.scalars(select(Account).where(Account.user_id == user_id).order_by(Account.name.asc())))
+    accounts = list(
+        db.scalars(
+            select(Account)
+            .where(Account.user_id == user_id)
+            .order_by(Account.name.asc())
+        )
+    )
     t = request.app.state.templates
     return t.TemplateResponse(
         request=request,
@@ -227,7 +308,9 @@ def categories_page(request: Request, db: Session = Depends(get_db)):
     user_id, plan = session_ctx
     categories = list(
         db.scalars(
-            select(Category).where(Category.user_id == user_id).order_by(Category.kind.asc(), Category.name.asc())
+            select(Category)
+            .where(Category.user_id == user_id)
+            .order_by(Category.kind.asc(), Category.name.asc())
         )
     )
     t = request.app.state.templates
@@ -252,7 +335,13 @@ def cards_page(request: Request, db: Session = Depends(get_db)):
     if isinstance(session_ctx, RedirectResponse):
         return session_ctx
     user_id, plan = session_ctx
-    cards = list(db.scalars(select(CreditCard).where(CreditCard.user_id == user_id).order_by(CreditCard.name.asc())))
+    cards = list(
+        db.scalars(
+            select(CreditCard)
+            .where(CreditCard.user_id == user_id)
+            .order_by(CreditCard.name.asc())
+        )
+    )
     t = request.app.state.templates
     return t.TemplateResponse(
         request=request,
@@ -280,7 +369,13 @@ def installments_page(
         return session_ctx
     user_id, plan = session_ctx
     selected_month = parse_year_month(month, default=date.today())
-    cards = list(db.scalars(select(CreditCard).where(CreditCard.user_id == user_id).order_by(CreditCard.name.asc())))
+    cards = list(
+        db.scalars(
+            select(CreditCard)
+            .where(CreditCard.user_id == user_id)
+            .order_by(CreditCard.name.asc())
+        )
+    )
     expense_categories = list(
         db.scalars(
             select(Category)
@@ -313,6 +408,14 @@ def installments_page(
             "installments": installments,
             "card_name_map": {item.id: item.name for item in cards},
             "category_name_map": {item.id: item.name for item in expense_categories},
+            "installment_kinds": [
+                {"value": item.value, "label": INSTALLMENT_KIND_LABELS[item]}
+                for item in InstallmentKind
+            ],
+            "installment_kind_labels": {
+                item.value: label for item, label in INSTALLMENT_KIND_LABELS.items()
+            },
+            "financing_kind": InstallmentKind.FINANCING.value,
         },
     )
 
@@ -328,17 +431,30 @@ def recurrences_page(
         return session_ctx
     user_id, plan = session_ctx
     selected_month = parse_year_month(month, default=date.today())
-    accounts = list(db.scalars(select(Account).where(Account.user_id == user_id).order_by(Account.name.asc())))
+    accounts = list(
+        db.scalars(
+            select(Account)
+            .where(Account.user_id == user_id)
+            .order_by(Account.name.asc())
+        )
+    )
     categories = list(
         db.scalars(
-            select(Category).where(Category.user_id == user_id).order_by(Category.kind.asc(), Category.name.asc())
+            select(Category)
+            .where(Category.user_id == user_id)
+            .order_by(Category.kind.asc(), Category.name.asc())
         )
     )
     recurring_rules = list(
         db.scalars(
             select(RecurringRule)
-            .join(PlanRecurringRule, PlanRecurringRule.recurring_rule_id == RecurringRule.id)
-            .where(RecurringRule.user_id == user_id, PlanRecurringRule.plan_id == plan.id)
+            .join(
+                PlanRecurringRule,
+                PlanRecurringRule.recurring_rule_id == RecurringRule.id,
+            )
+            .where(
+                RecurringRule.user_id == user_id, PlanRecurringRule.plan_id == plan.id
+            )
             .order_by(RecurringRule.created_at.desc())
         )
     )
@@ -391,7 +507,9 @@ def create_account_form(
     except Exception as exc:
         db.rollback()
         _set_flash(request, kind="error", message=f"Falha ao criar conta: {exc}")
-    return RedirectResponse("/app/transactions/accounts", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        "/app/transactions/accounts", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/accounts/{account_id}/update")
@@ -422,7 +540,9 @@ def update_account_form(
     except Exception as exc:
         db.rollback()
         _set_flash(request, kind="error", message=f"Falha ao atualizar conta: {exc}")
-    return RedirectResponse("/app/transactions/accounts", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        "/app/transactions/accounts", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/accounts/{account_id}/delete")
@@ -447,7 +567,9 @@ def delete_account_form(
     except Exception as exc:
         db.rollback()
         _set_flash(request, kind="error", message=f"Falha ao remover conta: {exc}")
-    return RedirectResponse("/app/transactions/accounts", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        "/app/transactions/accounts", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/categories")
@@ -470,7 +592,9 @@ def create_category_form(
     except Exception as exc:
         db.rollback()
         _set_flash(request, kind="error", message=f"Falha ao criar categoria: {exc}")
-    return RedirectResponse("/app/transactions/categories", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        "/app/transactions/categories", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/categories/{category_id}/update")
@@ -498,8 +622,12 @@ def update_category_form(
         _set_flash(request, kind="ok", message="Categoria atualizada.")
     except Exception as exc:
         db.rollback()
-        _set_flash(request, kind="error", message=f"Falha ao atualizar categoria: {exc}")
-    return RedirectResponse("/app/transactions/categories", status_code=status.HTTP_303_SEE_OTHER)
+        _set_flash(
+            request, kind="error", message=f"Falha ao atualizar categoria: {exc}"
+        )
+    return RedirectResponse(
+        "/app/transactions/categories", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/categories/{category_id}/delete")
@@ -524,7 +652,9 @@ def delete_category_form(
     except Exception as exc:
         db.rollback()
         _set_flash(request, kind="error", message=f"Falha ao remover categoria: {exc}")
-    return RedirectResponse("/app/transactions/categories", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        "/app/transactions/categories", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/credit-cards")
@@ -543,14 +673,25 @@ def create_credit_card_form(
     validate_csrf(request, csrf_token)
     try:
         if not (1 <= closing_day <= 31 and 1 <= due_day <= 31):
-            raise ValueError("Dias de fechamento e vencimento devem estar entre 1 e 31.")
-        db.add(CreditCard(user_id=user_id, name=name.strip(), closing_day=closing_day, due_day=due_day))
+            raise ValueError(
+                "Dias de fechamento e vencimento devem estar entre 1 e 31."
+            )
+        db.add(
+            CreditCard(
+                user_id=user_id,
+                name=name.strip(),
+                closing_day=closing_day,
+                due_day=due_day,
+            )
+        )
         db.commit()
         _set_flash(request, kind="ok", message="Cartao criado com sucesso.")
     except Exception as exc:
         db.rollback()
         _set_flash(request, kind="error", message=f"Falha ao criar cartao: {exc}")
-    return RedirectResponse("/app/transactions/cards", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        "/app/transactions/cards", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/credit-cards/{card_id}/update")
@@ -573,7 +714,9 @@ def update_credit_card_form(
         if row is None or row.user_id != user_id:
             raise ValueError("Cartao nao encontrado.")
         if not (1 <= closing_day <= 31 and 1 <= due_day <= 31):
-            raise ValueError("Dias de fechamento e vencimento devem estar entre 1 e 31.")
+            raise ValueError(
+                "Dias de fechamento e vencimento devem estar entre 1 e 31."
+            )
         row.name = name.strip()
         row.closing_day = closing_day
         row.due_day = due_day
@@ -583,7 +726,9 @@ def update_credit_card_form(
     except Exception as exc:
         db.rollback()
         _set_flash(request, kind="error", message=f"Falha ao atualizar cartao: {exc}")
-    return RedirectResponse("/app/transactions/cards", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        "/app/transactions/cards", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/credit-cards/{card_id}/delete")
@@ -608,7 +753,9 @@ def delete_credit_card_form(
     except Exception as exc:
         db.rollback()
         _set_flash(request, kind="error", message=f"Falha ao remover cartao: {exc}")
-    return RedirectResponse("/app/transactions/cards", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        "/app/transactions/cards", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/transactions/new")
@@ -639,9 +786,15 @@ def create_transaction_form(
         if category is None or category.user_id != user_id:
             raise ValueError("Categoria invalida.")
         direction_enum = TransactionDirection(direction)
-        if direction_enum == TransactionDirection.INCOME and category.kind != CategoryKind.INCOME:
+        if (
+            direction_enum == TransactionDirection.INCOME
+            and category.kind != CategoryKind.INCOME
+        ):
             raise ValueError("Categoria de receita obrigatoria para entrada.")
-        if direction_enum == TransactionDirection.EXPENSE and category.kind != CategoryKind.EXPENSE:
+        if (
+            direction_enum == TransactionDirection.EXPENSE
+            and category.kind != CategoryKind.EXPENSE
+        ):
             raise ValueError("Categoria de despesa obrigatoria para saida.")
 
         description_value = description.strip() or None
@@ -670,13 +823,19 @@ def create_transaction_form(
             if created_row is not None:
                 db.delete(created_row)
                 db.commit()
-            raise ValueError(f"Falha ao vincular transacao ao planejamento: {exc}") from exc
+            raise ValueError(
+                f"Falha ao vincular transacao ao planejamento: {exc}"
+            ) from exc
 
         if _is_checked(is_monthly_recurring):
-            recurring_start = Month.from_any_date(competency_month_value).add_months(1).value
+            recurring_start = (
+                Month.from_any_date(competency_month_value).add_months(1).value
+            )
             recurring_end = _month_from_optional_input(recurring_end_month)
             if recurring_end is not None and recurring_end < recurring_start:
-                raise ValueError("Mes final da recorrencia deve ser maior ou igual ao mes seguinte ao lancamento.")
+                raise ValueError(
+                    "Mes final da recorrencia deve ser maior ou igual ao mes seguinte ao lancamento."
+                )
             rule = RecurringRule(
                 user_id=user_id,
                 name=description_value or "Lancamento recorrente",
@@ -693,7 +852,11 @@ def create_transaction_form(
             db.flush()
             db.add(PlanRecurringRule(plan_id=plan.id, recurring_rule_id=rule.id))
             db.commit()
-            _set_flash(request, kind="ok", message="Lancamento e recorrencia mensal cadastrados.")
+            _set_flash(
+                request,
+                kind="ok",
+                message="Lancamento e recorrencia mensal cadastrados.",
+            )
         else:
             _set_flash(request, kind="ok", message="Transacao cadastrada.")
 
@@ -703,8 +866,12 @@ def create_transaction_form(
         )
     except Exception as exc:
         db.rollback()
-        _set_flash(request, kind="error", message=f"Falha ao cadastrar transacao: {exc}")
-        return RedirectResponse("/app/transactions", status_code=status.HTTP_303_SEE_OTHER)
+        _set_flash(
+            request, kind="error", message=f"Falha ao cadastrar transacao: {exc}"
+        )
+        return RedirectResponse(
+            "/app/transactions", status_code=status.HTTP_303_SEE_OTHER
+        )
 
 
 @router.post("/app/transactions/{transaction_id}/edit")
@@ -745,9 +912,15 @@ def update_transaction_form(
         if category is None or category.user_id != user_id:
             raise ValueError("Categoria invalida.")
         direction_enum = TransactionDirection(direction)
-        if direction_enum == TransactionDirection.INCOME and category.kind != CategoryKind.INCOME:
+        if (
+            direction_enum == TransactionDirection.INCOME
+            and category.kind != CategoryKind.INCOME
+        ):
             raise ValueError("Categoria de receita obrigatoria para entrada.")
-        if direction_enum == TransactionDirection.EXPENSE and category.kind != CategoryKind.EXPENSE:
+        if (
+            direction_enum == TransactionDirection.EXPENSE
+            and category.kind != CategoryKind.EXPENSE
+        ):
             raise ValueError("Categoria de despesa obrigatoria para saida.")
         competency_month_value = _month_from_input(competency_month)
         row.account_id = account_id
@@ -766,8 +939,12 @@ def update_transaction_form(
         )
     except Exception as exc:
         db.rollback()
-        _set_flash(request, kind="error", message=f"Falha ao atualizar transacao: {exc}")
-        return RedirectResponse("/app/transactions", status_code=status.HTTP_303_SEE_OTHER)
+        _set_flash(
+            request, kind="error", message=f"Falha ao atualizar transacao: {exc}"
+        )
+        return RedirectResponse(
+            "/app/transactions", status_code=status.HTTP_303_SEE_OTHER
+        )
 
 
 @router.post("/app/transactions/{transaction_id}/delete")
@@ -805,9 +982,14 @@ def delete_transaction_form(
 @router.post("/app/installments")
 def create_installment_form(
     request: Request,
-    credit_card_id: UUID = Form(...),
+    credit_card_id: str = Form(""),
     category_id: UUID = Form(...),
+    kind: InstallmentKind = Form(InstallmentKind.PURCHASE),
     description: str = Form(""),
+    creditor: str = Form(""),
+    financed_amount: str = Form(""),
+    interest_apr: str = Form(""),
+    due_day: int | None = Form(None),
     total_parts: int = Form(...),
     part_amount: str = Form(...),
     first_competency_month: str = Form(...),
@@ -820,9 +1002,14 @@ def create_installment_form(
     user_id, plan = session_ctx
     validate_csrf(request, csrf_token)
     try:
-        card = db.get(CreditCard, credit_card_id)
+        card_id = _optional_uuid(credit_card_id)
+        card = db.get(CreditCard, card_id) if card_id else None
         category = db.get(Category, category_id)
-        if card is None or card.user_id != user_id:
+        if kind == InstallmentKind.PURCHASE and (
+            card is None or card.user_id != user_id
+        ):
+            raise ValueError("Cartao invalido.")
+        if card is not None and card.user_id != user_id:
             raise ValueError("Cartao invalido.")
         if category is None or category.user_id != user_id:
             raise ValueError("Categoria invalida.")
@@ -830,11 +1017,18 @@ def create_installment_form(
             raise ValueError("Parcelamento deve usar categoria de despesa.")
         if total_parts <= 0:
             raise ValueError("Numero de parcelas deve ser maior que zero.")
+        if due_day is not None and not 1 <= due_day <= 31:
+            raise ValueError("Dia de vencimento deve estar entre 1 e 31.")
         row = Installment(
             user_id=user_id,
-            credit_card_id=credit_card_id,
+            credit_card_id=card_id if kind == InstallmentKind.PURCHASE else None,
             category_id=category_id,
+            kind=kind,
             description=description.strip() or None,
+            creditor=creditor.strip() or None,
+            financed_amount_cents=_optional_money_to_cents(financed_amount),
+            interest_apr_bps=_optional_apr_to_bps(interest_apr),
+            due_day=due_day,
             total_parts=total_parts,
             part_amount_cents=_money_to_cents(part_amount),
             first_competency_month=_month_from_input(first_competency_month),
@@ -843,20 +1037,28 @@ def create_installment_form(
         db.flush()
         db.add(PlanInstallment(plan_id=plan.id, installment_id=row.id))
         db.commit()
-        _set_flash(request, kind="ok", message="Parcelamento criado com sucesso.")
+        noun = "Financiamento" if kind == InstallmentKind.FINANCING else "Parcelamento"
+        _set_flash(request, kind="ok", message=f"{noun} criado com sucesso.")
     except Exception as exc:
         db.rollback()
-        _set_flash(request, kind="error", message=f"Falha ao criar parcelamento: {exc}")
-    return RedirectResponse("/app/transactions/installments", status_code=status.HTTP_303_SEE_OTHER)
+        _set_flash(request, kind="error", message=f"Falha ao criar compromisso: {exc}")
+    return RedirectResponse(
+        "/app/transactions/installments", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/installments/{installment_id}/update")
 def update_installment_form(
     installment_id: UUID,
     request: Request,
-    credit_card_id: UUID = Form(...),
+    credit_card_id: str = Form(""),
     category_id: UUID = Form(...),
+    kind: InstallmentKind = Form(InstallmentKind.PURCHASE),
     description: str = Form(""),
+    creditor: str = Form(""),
+    financed_amount: str = Form(""),
+    interest_apr: str = Form(""),
+    due_day: int | None = Form(None),
     total_parts: int = Form(...),
     part_amount: str = Form(...),
     first_competency_month: str = Form(...),
@@ -879,10 +1081,15 @@ def update_installment_form(
             )
         )
         if row is None:
-            raise ValueError("Parcelamento nao encontrado no planejamento ativo.")
-        card = db.get(CreditCard, credit_card_id)
+            raise ValueError("Compromisso nao encontrado no planejamento ativo.")
+        card_id = _optional_uuid(credit_card_id)
+        card = db.get(CreditCard, card_id) if card_id else None
         category = db.get(Category, category_id)
-        if card is None or card.user_id != user_id:
+        if kind == InstallmentKind.PURCHASE and (
+            card is None or card.user_id != user_id
+        ):
+            raise ValueError("Cartao invalido.")
+        if card is not None and card.user_id != user_id:
             raise ValueError("Cartao invalido.")
         if category is None or category.user_id != user_id:
             raise ValueError("Categoria invalida.")
@@ -890,19 +1097,31 @@ def update_installment_form(
             raise ValueError("Parcelamento deve usar categoria de despesa.")
         if total_parts <= 0:
             raise ValueError("Numero de parcelas deve ser maior que zero.")
-        row.credit_card_id = credit_card_id
+        if due_day is not None and not 1 <= due_day <= 31:
+            raise ValueError("Dia de vencimento deve estar entre 1 e 31.")
+        row.kind = kind
+        row.credit_card_id = card_id if kind == InstallmentKind.PURCHASE else None
         row.category_id = category_id
         row.description = description.strip() or None
+        row.creditor = creditor.strip() or None
+        row.financed_amount_cents = _optional_money_to_cents(financed_amount)
+        row.interest_apr_bps = _optional_apr_to_bps(interest_apr)
+        row.due_day = due_day
         row.total_parts = total_parts
         row.part_amount_cents = _money_to_cents(part_amount)
         row.first_competency_month = _month_from_input(first_competency_month)
         db.add(row)
         db.commit()
-        _set_flash(request, kind="ok", message="Parcelamento atualizado.")
+        noun = "Financiamento" if kind == InstallmentKind.FINANCING else "Parcelamento"
+        _set_flash(request, kind="ok", message=f"{noun} atualizado.")
     except Exception as exc:
         db.rollback()
-        _set_flash(request, kind="error", message=f"Falha ao atualizar parcelamento: {exc}")
-    return RedirectResponse("/app/transactions/installments", status_code=status.HTTP_303_SEE_OTHER)
+        _set_flash(
+            request, kind="error", message=f"Falha ao atualizar compromisso: {exc}"
+        )
+    return RedirectResponse(
+        "/app/transactions/installments", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/installments/{installment_id}/delete")
@@ -926,15 +1145,19 @@ def delete_installment_form(
         )
         row = db.get(Installment, installment_id)
         if mapping is None or row is None or row.user_id != user_id:
-            raise ValueError("Parcelamento nao encontrado no planejamento ativo.")
+            raise ValueError("Compromisso nao encontrado no planejamento ativo.")
         db.delete(mapping)
         db.delete(row)
         db.commit()
-        _set_flash(request, kind="ok", message="Parcelamento removido.")
+        _set_flash(request, kind="ok", message="Compromisso removido.")
     except Exception as exc:
         db.rollback()
-        _set_flash(request, kind="error", message=f"Falha ao remover parcelamento: {exc}")
-    return RedirectResponse("/app/transactions/installments", status_code=status.HTTP_303_SEE_OTHER)
+        _set_flash(
+            request, kind="error", message=f"Falha ao remover compromisso: {exc}"
+        )
+    return RedirectResponse(
+        "/app/transactions/installments", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/recurring-rules")
@@ -964,9 +1187,15 @@ def create_recurring_rule_form(
         if category is None or category.user_id != user_id:
             raise ValueError("Categoria invalida.")
         direction_enum = TransactionDirection(direction)
-        if direction_enum == TransactionDirection.INCOME and category.kind != CategoryKind.INCOME:
+        if (
+            direction_enum == TransactionDirection.INCOME
+            and category.kind != CategoryKind.INCOME
+        ):
             raise ValueError("Categoria de receita obrigatoria para entrada.")
-        if direction_enum == TransactionDirection.EXPENSE and category.kind != CategoryKind.EXPENSE:
+        if (
+            direction_enum == TransactionDirection.EXPENSE
+            and category.kind != CategoryKind.EXPENSE
+        ):
             raise ValueError("Categoria de despesa obrigatoria para saida.")
         if not (1 <= day_of_month <= 31):
             raise ValueError("Dia do mes deve estar entre 1 e 31.")
@@ -994,7 +1223,9 @@ def create_recurring_rule_form(
     except Exception as exc:
         db.rollback()
         _set_flash(request, kind="error", message=f"Falha ao criar recorrencia: {exc}")
-    return RedirectResponse("/app/transactions/recurrences", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        "/app/transactions/recurrences", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/recurring-rules/{rule_id}/update")
@@ -1020,7 +1251,10 @@ def update_recurring_rule_form(
     try:
         row = db.scalar(
             select(RecurringRule)
-            .join(PlanRecurringRule, PlanRecurringRule.recurring_rule_id == RecurringRule.id)
+            .join(
+                PlanRecurringRule,
+                PlanRecurringRule.recurring_rule_id == RecurringRule.id,
+            )
             .where(
                 RecurringRule.id == rule_id,
                 RecurringRule.user_id == user_id,
@@ -1036,9 +1270,15 @@ def update_recurring_rule_form(
         if category is None or category.user_id != user_id:
             raise ValueError("Categoria invalida.")
         direction_enum = TransactionDirection(direction)
-        if direction_enum == TransactionDirection.INCOME and category.kind != CategoryKind.INCOME:
+        if (
+            direction_enum == TransactionDirection.INCOME
+            and category.kind != CategoryKind.INCOME
+        ):
             raise ValueError("Categoria de receita obrigatoria para entrada.")
-        if direction_enum == TransactionDirection.EXPENSE and category.kind != CategoryKind.EXPENSE:
+        if (
+            direction_enum == TransactionDirection.EXPENSE
+            and category.kind != CategoryKind.EXPENSE
+        ):
             raise ValueError("Categoria de despesa obrigatoria para saida.")
         if not (1 <= day_of_month <= 31):
             raise ValueError("Dia do mes deve estar entre 1 e 31.")
@@ -1060,8 +1300,12 @@ def update_recurring_rule_form(
         _set_flash(request, kind="ok", message="Recorrencia atualizada.")
     except Exception as exc:
         db.rollback()
-        _set_flash(request, kind="error", message=f"Falha ao atualizar recorrencia: {exc}")
-    return RedirectResponse("/app/transactions/recurrences", status_code=status.HTTP_303_SEE_OTHER)
+        _set_flash(
+            request, kind="error", message=f"Falha ao atualizar recorrencia: {exc}"
+        )
+    return RedirectResponse(
+        "/app/transactions/recurrences", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/app/recurring-rules/{rule_id}/delete")
@@ -1092,11 +1336,19 @@ def delete_recurring_rule_form(
         _set_flash(request, kind="ok", message="Recorrencia removida.")
     except Exception as exc:
         db.rollback()
-        _set_flash(request, kind="error", message=f"Falha ao remover recorrencia: {exc}")
-    return RedirectResponse("/app/transactions/recurrences", status_code=status.HTTP_303_SEE_OTHER)
+        _set_flash(
+            request, kind="error", message=f"Falha ao remover recorrencia: {exc}"
+        )
+    return RedirectResponse(
+        "/app/transactions/recurrences", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
-@router.post("/api/transactions", response_model=TransactionReadDTO, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/api/transactions",
+    response_model=TransactionReadDTO,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_transaction(
     payload: CreateTransactionDTO,
     user_id: UUID = Depends(get_current_user_id),
@@ -1122,17 +1374,25 @@ def update_transaction(
             payload=payload,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
 
 
-@router.delete("/api/transactions/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/api/transactions/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 def delete_transaction(
     transaction_id: UUID,
     user_id: UUID = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     try:
-        SQLAlchemyTransactionRepository(db).delete(user_id=user_id, transaction_id=transaction_id)
+        SQLAlchemyTransactionRepository(db).delete(
+            user_id=user_id, transaction_id=transaction_id
+        )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
     return None

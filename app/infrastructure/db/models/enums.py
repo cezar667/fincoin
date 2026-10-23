@@ -34,6 +34,11 @@ class RecurringCadence(StrEnum):
     MONTHLY = "MONTHLY"
 
 
+class InstallmentKind(StrEnum):
+    PURCHASE = "PURCHASE"
+    FINANCING = "FINANCING"
+
+
 class DebtKind(StrEnum):
     TAX = "TAX"
     LOAN = "LOAN"
