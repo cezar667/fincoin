@@ -42,6 +42,26 @@ h4 {
   box-shadow: 0 28px 60px rgba(8, 47, 73, 0.24);
 }
 .dashboard-hero { background: radial-gradient(circle at 85% 12%, rgba(34,211,238,.22), transparent 25%), linear-gradient(135deg,#07182e,#0b3651 55%,#115e59); box-shadow: 0 24px 55px rgba(8,47,73,.2); }
+.month-rail { display: flex; gap: .7rem; overflow-x: auto; padding: .2rem .1rem .55rem; scrollbar-width: thin; }
+.month-rail-card { display: flex; min-width: 132px; flex: 0 0 132px; flex-direction: column; gap: .32rem; border: 1px solid #e2e8f0; border-radius: 18px; padding: .85rem; background: #f8fafc; color: #475569; text-decoration: none; }
+.month-rail-card strong { font-family: "Sora", sans-serif; font-size: .94rem; color: #0f172a; letter-spacing: -.035em; white-space: nowrap; }
+.month-rail-card small { color: #64748b; font-size: .67rem; white-space: nowrap; }
+.month-rail-card:hover { border-color: #5eead4; background: #f0fdfa; transform: translateY(-1px); }
+.month-rail-card-active { border: 2px solid #0f766e; padding: calc(.85rem - 1px); background: linear-gradient(145deg, #f0fdfa, #ecfeff); box-shadow: 0 8px 20px rgba(15, 118, 110, .12); }
+.month-rail-card-active strong, .month-rail-card-active small { color: #0f766e; }
+.month-focus-track { display: grid; grid-auto-columns: minmax(286px, 88vw); grid-auto-flow: column; gap: 1rem; overflow-x: auto; padding: .15rem .25rem .85rem; margin: 0 -.25rem; scroll-snap-type: x mandatory; }
+.month-focus-card { display: flex; min-height: 430px; flex-direction: column; scroll-snap-align: start; border: 1px solid #dbe4ee; border-radius: 28px; padding: 1.2rem; background: linear-gradient(155deg, #ffffff, #f8fafc); box-shadow: 0 12px 30px rgba(15, 23, 42, .08); }
+.month-focus-card-now { border-color: #99f6e4; background: radial-gradient(circle at 92% 8%, rgba(45, 212, 191, .22), transparent 27%), linear-gradient(150deg, #ecfdf5, #ffffff 68%); }
+.month-focus-stat { border-radius: 16px; padding: .75rem; background: rgba(255, 255, 255, .76); border: 1px solid rgba(203, 213, 225, .75); }
+.month-focus-stat span { display: block; color: #64748b; font-size: .66rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.month-focus-stat strong { display: block; margin-top: .3rem; font-family: "Sora", sans-serif; font-size: .95rem; letter-spacing: -.04em; white-space: nowrap; }
+.month-focus-item { display: flex; align-items: center; justify-content: space-between; gap: .7rem; border-radius: 13px; padding: .55rem .45rem; text-decoration: none; }
+.month-focus-item:hover { background: rgba(241, 245, 249, .9); }
+.month-focus-item span { min-width: 0; }
+.month-focus-item b { display: block; overflow: hidden; color: #334155; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.month-focus-item small { display: block; margin-top: .12rem; overflow: hidden; color: #94a3b8; font-size: .65rem; text-overflow: ellipsis; white-space: nowrap; }
+.month-focus-item strong { flex: 0 0 auto; font-size: .75rem; white-space: nowrap; }
+@media (min-width: 1024px) { .month-focus-track { grid-auto-flow: initial; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; padding-bottom: 0; margin: 0; } .month-focus-card { min-height: 450px; } }
 .forecast-hero { background: radial-gradient(circle at 88% 8%, rgba(56,189,248,.24), transparent 27%), radial-gradient(circle at 62% 120%, rgba(45,212,191,.18), transparent 32%), linear-gradient(135deg,#07182e,#0b3651 54%,#075985); box-shadow: 0 24px 55px rgba(8,47,73,.2); }
 .forecast-month[open] { box-shadow: 0 16px 40px rgba(15,23,42,.09); }
 

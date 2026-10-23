@@ -34,9 +34,8 @@
     {% set primary_action_href = primary_action_href | default('/app/transactions#novo-lancamento') %}
     {% set primary_action_label = primary_action_label | default('+ Novo') %}
 
-    <input id="sidebar-toggle" type="checkbox" class="peer hidden" />
-
     <div class="min-h-screen lg:grid lg:grid-cols-[304px_minmax(0,1fr)]">
+      <input id="sidebar-toggle" type="checkbox" class="peer sr-only" aria-label="Abrir menu de navegação" />
       <label
         for="sidebar-toggle"
         class="fixed inset-0 z-30 hidden bg-slate-950/55 backdrop-blur-sm peer-checked:block lg:hidden"

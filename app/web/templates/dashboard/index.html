@@ -1,36 +1,72 @@
 {% extends "base.html" %}
 {% block title %}Comando Financeiro | FinSight{% endblock %}
 {% block content %}
-<section class="dashboard-hero mb-6 overflow-hidden rounded-[30px] p-6 text-white lg:p-8">
-  <div class="flex flex-wrap items-start justify-between gap-6">
-    <div class="max-w-2xl"><p class="text-xs font-bold uppercase tracking-[.22em] text-cyan-200">Comando financeiro familiar</p><h1 class="mt-2 text-3xl font-bold lg:text-4xl">Clareza hoje. Liberdade amanhã.</h1><p class="mt-3 text-sm leading-6 text-slate-200">Seu plano para atravessar os próximos meses com segurança e construir novas possibilidades.</p></div>
-    <form method="get" action="/app/dashboard" class="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur"><label class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Mês de partida<input type="month" name="month" value="{{ selected_month.strftime('%Y-%m') }}" class="mt-1 block rounded-xl border border-white/20 bg-white px-3 py-2 text-sm font-semibold text-slate-900"/></label><button class="mt-2 w-full rounded-xl bg-emerald-400 px-3 py-2 text-xs font-bold text-slate-950">Atualizar visão</button></form>
+<section class="dashboard-hero mb-5 overflow-hidden rounded-[30px] p-5 text-white lg:p-7">
+  <div class="flex flex-wrap items-start justify-between gap-5">
+    <div class="max-w-2xl"><p class="text-xs font-bold uppercase tracking-[.22em] text-cyan-200">Comando financeiro familiar</p><h1 class="mt-2 text-2xl font-bold lg:text-3xl">Seu dinheiro, nos próximos dois meses.</h1><p class="mt-2 text-sm leading-6 text-slate-200">Priorize o agora, antecipe o próximo mês e transforme previsões em decisões tranquilas.</p></div>
+    <form method="get" action="/app/dashboard" class="flex items-end gap-2 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur"><label class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Começar em<input type="month" name="month" value="{{ selected_month.strftime('%Y-%m') }}" class="mt-1 block rounded-xl border border-white/20 bg-white px-3 py-2 text-sm font-semibold text-slate-900"/></label><button class="rounded-xl bg-emerald-400 px-3 py-2 text-xs font-bold text-slate-950">Ver</button></form>
+  </div>
+</section>
+
+<section class="mb-5 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm lg:p-5">
+  <div class="mb-3 flex items-center justify-between gap-3"><div><p class="eyebrow">Linha do tempo financeira</p><h2 class="mt-1 text-lg font-bold">Escolha o mês para mudar sua visão</h2></div><a href="/app/forecast" class="text-xs font-bold text-emerald-700 hover:text-emerald-900">Abrir Radar completo →</a></div>
+  <div class="month-rail" aria-label="Meses projetados">
+    {% for item in month_rail %}
+    <a href="/app/dashboard?month={{ item.line.month.strftime('%Y-%m') }}" class="month-rail-card {% if item.is_selected %}month-rail-card-active{% endif %}">
+      <span class="text-xs font-bold uppercase tracking-wider">{{ item.label }}{% if item.line.month.year != selected_month.year %} {{ item.year }}{% endif %}</span>
+      <strong>{{ item.line.cumulative_cents|brl }}</strong>
+      <small>{% if item.line.net_cents >= 0 %}+{% endif %}{{ item.line.net_cents|brl }} no mês</small>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="mb-6">
+  <div class="mb-3 flex flex-wrap items-end justify-between gap-3"><div><p class="eyebrow">Foco imediato</p><h2 class="mt-1 text-2xl font-bold">Este mês e o próximo</h2><p class="mt-1 text-sm text-slate-500">Entradas, compromissos e o que merece sua atenção primeiro.</p></div><a href="/app/transactions" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700">Ver lançamentos</a></div>
+  <div class="month-focus-track">
+    {% for focus in focused_months %}
+    {% set line = focus.line %}
+    <article class="month-focus-card {% if loop.first %}month-focus-card-now{% endif %}">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-xs font-bold uppercase tracking-[.16em] {% if loop.first %}text-emerald-200{% else %}text-sky-700{% endif %}">{% if loop.first %}Agora{% else %}Em seguida{% endif %}</p><h3 class="mt-1 text-xl font-bold capitalize">{{ focus.title }}</h3></div>
+        <span class="rounded-full px-3 py-1 text-xs font-bold {% if line.traffic_light == 'GREEN' %}bg-emerald-100 text-emerald-800{% elif line.traffic_light == 'YELLOW' %}bg-amber-100 text-amber-800{% else %}bg-rose-100 text-rose-800{% endif %}">{% if line.traffic_light == 'GREEN' %}No controle{% elif line.traffic_light == 'YELLOW' %}Atenção{% else %}Crítico{% endif %}</span>
+      </div>
+      <div class="mt-5 grid grid-cols-2 gap-3">
+        <div class="month-focus-stat"><span>Entradas</span><strong class="text-emerald-600">{{ line.income_cents|brl }}</strong></div>
+        <div class="month-focus-stat"><span>Compromissos</span><strong class="text-rose-600">{{ line.expense_cents|brl }}</strong></div>
+      </div>
+      <div class="mt-4 flex items-end justify-between rounded-2xl border border-slate-200/70 bg-white/70 p-3"><div><p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Saldo projetado ao fim do mês</p><p class="mt-1 text-xl font-bold {% if line.cumulative_cents >= 0 %}text-slate-900{% else %}text-rose-700{% endif %}">{{ line.cumulative_cents|brl }}</p></div><p class="text-right text-xs font-semibold {% if line.net_cents >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{% if line.net_cents >= 0 %}+{% endif %}{{ line.net_cents|brl }}<br/><span class="font-normal text-slate-500">resultado mensal</span></p></div>
+      <div class="mt-5 border-t border-slate-200/70 pt-4">
+        <div class="flex items-center justify-between"><p class="text-xs font-bold uppercase tracking-[.14em] text-slate-500">Principais saídas</p><span class="text-xs text-slate-500">{{ focus.expense_items|length }} itens</span></div>
+        <div class="mt-2 space-y-1">
+          {% for item in focus.expense_items[:4] %}
+          <a href="{{ item.edit_url }}" class="month-focus-item group"><span class="min-w-0"><b>{{ item.description }}</b><small>{{ item.source_label }}{% if item.category_name %} · {{ item.category_name }}{% endif %}</small></span><strong class="text-rose-700">{{ item.amount_cents|brl }}</strong></a>
+          {% else %}<p class="rounded-xl bg-slate-100/80 px-3 py-3 text-xs text-slate-500">Nenhuma saída prevista neste mês.</p>{% endfor %}
+        </div>
+      </div>
+      <div class="mt-4 flex items-center justify-between border-t border-slate-200/70 pt-3"><span class="text-xs text-slate-500">{{ focus.income_items|length }} receitas mapeadas</span><a href="/app/forecast?from={{ line.month.strftime('%Y-%m') }}" class="text-xs font-bold text-emerald-700 hover:text-emerald-900">Detalhar mês →</a></div>
+    </article>
+    {% endfor %}
   </div>
 </section>
 
 <section class="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-  <article class="metric-card"><p class="metric-label">Margem deste mês</p><p class="metric-number {% if monthly_margin_cents >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ monthly_margin_cents|brl }}</p><p class="metric-help">Receitas menos compromissos previstos</p></article>
+  <article class="metric-card"><p class="metric-label">Margem do mês atual</p><p class="metric-number {% if monthly_margin_cents >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ monthly_margin_cents|brl }}</p><p class="metric-help">Entradas menos compromissos</p></article>
   <article class="metric-card"><p class="metric-label">Saldo em 6 meses</p><p class="metric-number {% if forecast.lines and forecast.lines[-1].cumulative_cents >= 0 %}text-slate-900{% else %}text-rose-700{% endif %}">{{ forecast.lines[-1].cumulative_cents|brl if forecast.lines else 'R$ 0,00' }}</p><p class="metric-help">Partindo de {{ forecast.initial_balance_cents|brl }}</p></article>
   <article class="metric-card"><p class="metric-label">Dívidas mapeadas</p><p class="metric-number text-rose-700">{{ total_debt_cents|brl }}</p><a href="/app/prosperity#dividas" class="metric-help inline-block font-bold text-rose-700">Ver plano de quitação →</a></article>
   <article class="metric-card"><p class="metric-label">Patrimônio em metas</p><p class="metric-number text-sky-700">{{ goal_current_cents|brl }}</p><p class="metric-help">de {{ goal_target_cents|brl }} planejados</p></article>
 </section>
 
-<section class="mb-6 grid gap-4 xl:grid-cols-[1.5fr_.7fr]">
+<section class="grid gap-4 xl:grid-cols-[1.5fr_.7fr]">
   <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:p-6">
     <div class="flex flex-wrap items-center justify-between gap-2"><div><p class="eyebrow">Radar de caixa</p><h2 class="mt-1 text-xl font-bold">Trajetória dos próximos 6 meses</h2></div><a href="/app/forecast" class="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">Abrir projeção completa</a></div>
-    <div class="mt-5 h-[280px]"><canvas id="forecastChart"></canvas></div>
+    <div class="mt-5 h-[260px]"><canvas id="forecastChart"></canvas></div>
   </article>
   <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
     <div class="flex items-center justify-between"><div><p class="eyebrow">Plano de ação</p><h2 class="mt-1 text-xl font-bold">Próximos passos</h2></div><span class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 font-bold text-emerald-700">{{ action_items|length }}</span></div>
     <div class="mt-5 space-y-3">{% for item in action_items %}<a href="{{ item.href }}" class="group flex items-center justify-between rounded-2xl border border-slate-200 p-3 hover:border-emerald-300 hover:bg-emerald-50"><span class="text-sm font-semibold">{{ item.title }}</span><span class="text-slate-400 group-hover:text-emerald-700">→</span></a>{% else %}<div class="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">Seu plano essencial está estruturado. Faça a revisão semanal e avance nas metas.</div>{% endfor %}</div>
     <a href="/app/prosperity" class="primary-button mt-5 block text-center">Abrir central de prosperidade</a>
   </article>
-</section>
-
-<section class="grid gap-4 md:grid-cols-3">
-  <article class="rounded-3xl border border-emerald-100 bg-emerald-50/70 p-5"><p class="eyebrow text-emerald-700">Entrada prevista</p><p class="mt-2 text-2xl font-bold text-emerald-800">{{ forecast.lines[0].income_cents|brl if forecast.lines else 'R$ 0,00' }}</p><p class="mt-2 text-xs text-emerald-800/70">Receitas do mês selecionado</p></article>
-  <article class="rounded-3xl border border-rose-100 bg-rose-50/70 p-5"><p class="eyebrow text-rose-700">Saída prevista</p><p class="mt-2 text-2xl font-bold text-rose-800">{{ forecast.lines[0].expense_cents|brl if forecast.lines else 'R$ 0,00' }}</p><p class="mt-2 text-xs text-rose-800/70">Despesas, parcelas e dívidas</p></article>
-  <article class="rounded-3xl border border-violet-100 bg-violet-50/70 p-5"><p class="eyebrow text-violet-700">Novas rendas em ação</p><p class="mt-2 text-2xl font-bold text-violet-800">{{ active_income_ideas }}</p><p class="mt-2 text-xs text-violet-800/70">Oportunidades sendo executadas</p></article>
 </section>
 
 <script>

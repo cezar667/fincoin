@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.application.use_cases.build_forecast import BuildForecastUseCase
 from app.infrastructure.auth.csrf import get_or_create_csrf_token
-from app.infrastructure.db.models.debt import Debt
 from app.infrastructure.db.models.category_budget import CategoryBudget
+from app.infrastructure.db.models.debt import Debt
 from app.infrastructure.db.models.financial_goal import FinancialGoal
 from app.infrastructure.db.models.financial_plan import FinancialPlan
 from app.infrastructure.db.models.income_opportunity import IncomeOpportunity
@@ -23,6 +23,26 @@ from app.web.routers._utils import (
 )
 
 router = APIRouter(prefix="/app")
+
+MONTH_NAMES = (
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
+)
+
+
+def _month_label(value: date, *, short: bool = False) -> str:
+    name = MONTH_NAMES[value.month - 1]
+    return f"{name[:3]}" if short else f"{name} de {value.year}"
 
 
 @router.get("/dashboard")
@@ -47,12 +67,44 @@ def dashboard_page(
         request.session.pop("active_plan_id", None)
         return RedirectResponse("/app/plans", status_code=status.HTTP_303_SEE_OTHER)
     selected_month = parse_year_month(month, default=date.today())
-    forecast = BuildForecastUseCase(SQLAlchemyForecastRepository(db)).execute(
+    forecast_repository = SQLAlchemyForecastRepository(db)
+    forecast = BuildForecastUseCase(forecast_repository).execute(
         user_id=user_id,
         from_month=selected_month,
         months=6,
         plan_id=active_plan.id,
     )
+    focus_months = min(2, len(forecast.lines))
+    income_details = forecast_repository.build_income_details(
+        user_id=user_id,
+        from_month=selected_month,
+        months=focus_months,
+        plan_id=active_plan.id,
+    )
+    expense_details = forecast_repository.build_expense_details(
+        user_id=user_id,
+        from_month=selected_month,
+        months=focus_months,
+        plan_id=active_plan.id,
+    )
+    focused_months = [
+        {
+            "line": line,
+            "title": _month_label(line.month),
+            "income_items": income_details.get(line.month, []),
+            "expense_items": expense_details.get(line.month, []),
+        }
+        for line in forecast.lines[:focus_months]
+    ]
+    month_rail = [
+        {
+            "line": line,
+            "label": _month_label(line.month, short=True),
+            "year": str(line.month.year)[-2:],
+            "is_selected": line.month == selected_month,
+        }
+        for line in forecast.lines
+    ]
     total_debt_cents = (
         db.scalar(
             select(func.coalesce(func.sum(Debt.current_balance_cents), 0)).where(
@@ -134,6 +186,8 @@ def dashboard_page(
         name="dashboard/index.html",
         context={
             "forecast": forecast,
+            "focused_months": focused_months,
+            "month_rail": month_rail,
             "selected_month": selected_month,
             "current_plan_name": active_plan.name,
             "active_page": "dashboard",
