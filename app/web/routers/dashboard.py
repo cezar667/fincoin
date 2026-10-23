@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.application.use_cases.build_forecast import BuildForecastUseCase
 from app.infrastructure.auth.csrf import get_or_create_csrf_token
 from app.infrastructure.db.models.debt import Debt
+from app.infrastructure.db.models.category_budget import CategoryBudget
 from app.infrastructure.db.models.financial_goal import FinancialGoal
 from app.infrastructure.db.models.financial_plan import FinancialPlan
 from app.infrastructure.db.models.income_opportunity import IncomeOpportunity
@@ -77,6 +78,17 @@ def dashboard_page(
         )
         or 0
     )
+    budget_count = (
+        db.scalar(
+            select(func.count())
+            .select_from(CategoryBudget)
+            .where(
+                CategoryBudget.user_id == user_id,
+                CategoryBudget.is_active.is_(True),
+            )
+        )
+        or 0
+    )
     danger_months = [
         line for line in forecast.lines if line.traffic_light in {"YELLOW", "RED"}
     ]
@@ -93,6 +105,13 @@ def dashboard_page(
     if int(goal_totals[1]) == 0:
         action_items.append(
             {"title": "Criar a primeira meta familiar", "href": "/app/prosperity#metas"}
+        )
+    if budget_count == 0:
+        action_items.append(
+            {
+                "title": "Definir limites por categoria",
+                "href": "/app/prosperity#orcamento",
+            }
         )
     if active_income_ideas == 0:
         action_items.append(

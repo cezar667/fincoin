@@ -14,6 +14,7 @@ from app.domain.value_objects.month import Month
 from app.infrastructure.auth.csrf import get_or_create_csrf_token, validate_csrf
 from app.infrastructure.db.models.account import Account
 from app.infrastructure.db.models.category import Category
+from app.infrastructure.db.models.category_budget import CategoryBudget
 from app.infrastructure.db.models.debt import Debt
 from app.infrastructure.db.models.debt_plan import DebtPlan
 from app.infrastructure.db.models.enums import DebtKind, TransactionDirection
@@ -127,6 +128,21 @@ def prosperity_page(
             .order_by(IncomeOpportunity.stage, IncomeOpportunity.created_at.desc())
         )
     )
+    expense_categories = list(
+        db.scalars(
+            select(Category)
+            .where(Category.user_id == user_id, Category.kind == "EXPENSE")
+            .order_by(Category.name)
+        )
+    )
+    budgets = list(
+        db.scalars(
+            select(CategoryBudget).where(
+                CategoryBudget.user_id == user_id,
+                CategoryBudget.is_active.is_(True),
+            )
+        )
+    )
     plans_by_debt = {
         item.debt_id: item
         for item in db.scalars(select(DebtPlan).where(DebtPlan.user_id == user_id))
@@ -202,6 +218,53 @@ def prosperity_page(
         item["month_count"] = len(item.pop("months"))
         item["average"] = round(int(item["total"]) / int(item["count"]))
 
+    current_month = Month.from_any_date(date.today()).value
+    next_month = Month.from_any_date(current_month).add_months(1).value
+    current_spending = {
+        category_id: int(total)
+        for category_id, total in db.execute(
+            select(
+                Transaction.category_id,
+                func.coalesce(func.sum(Transaction.amount_cents), 0),
+            )
+            .where(
+                Transaction.user_id == user_id,
+                Transaction.direction == TransactionDirection.EXPENSE,
+                Transaction.competency_month >= current_month,
+                Transaction.competency_month < next_month,
+            )
+            .group_by(Transaction.category_id)
+        )
+    }
+    categories_by_id = {item.id: item for item in expense_categories}
+    budget_cards: list[dict[str, object]] = []
+    for budget in budgets:
+        category = categories_by_id.get(budget.category_id)
+        if category is None:
+            continue
+        spent = current_spending.get(budget.category_id, 0)
+        percent = (
+            round(spent / budget.monthly_limit_cents * 100)
+            if budget.monthly_limit_cents
+            else 0
+        )
+        budget_cards.append(
+            {
+                "category": category,
+                "budget": budget,
+                "spent_cents": spent,
+                "remaining_cents": budget.monthly_limit_cents - spent,
+                "percent": percent,
+                "bar_percent": min(100, percent),
+                "tone": "rose"
+                if percent >= 100
+                else "amber"
+                if percent >= budget.alert_percent
+                else "emerald",
+            }
+        )
+    budget_cards.sort(key=lambda item: int(item["percent"]), reverse=True)
+
     account_count = (
         db.scalar(
             select(func.count()).select_from(Account).where(Account.user_id == user_id)
@@ -220,6 +283,7 @@ def prosperity_page(
     readiness_items = [
         ("Contas cadastradas", account_count > 0),
         ("Renda recorrente mapeada", recurring_income > 0),
+        ("Orçamento por categoria definido", len(budgets) > 0),
         ("Dívidas inventariadas", len(debts) > 0),
         ("Meta de prosperidade criada", len(goals) > 0),
         (
@@ -279,12 +343,63 @@ def prosperity_page(
             ),
             "top_categories": top_categories,
             "recurring_candidates": recurring_candidates,
+            "expense_categories": expense_categories,
+            "budget_cards": budget_cards,
+            "current_month": current_month,
             "readiness_items": readiness_items,
             "readiness_score": readiness_score,
             "next_focus": next_focus,
             "today": date.today(),
         },
     )
+
+
+@router.post("/app/prosperity/budgets")
+def upsert_budget(
+    request: Request,
+    category_id: UUID = Form(...),
+    monthly_limit: str = Form(...),
+    alert_percent: int = Form(80),
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user_id = user_id_from_session(request)
+    if user_id is None:
+        return RedirectResponse("/login", status_code=303)
+    validate_csrf(request, csrf_token)
+    try:
+        category = db.scalar(
+            select(Category).where(
+                Category.id == category_id,
+                Category.user_id == user_id,
+                Category.kind == "EXPENSE",
+            )
+        )
+        if category is None:
+            raise ValueError("Categoria de despesa inválida.")
+        limit_cents = _money(monthly_limit, allow_zero=False)
+        budget = db.scalar(
+            select(CategoryBudget).where(
+                CategoryBudget.user_id == user_id,
+                CategoryBudget.category_id == category_id,
+            )
+        )
+        if budget is None:
+            budget = CategoryBudget(
+                user_id=user_id,
+                category_id=category_id,
+                monthly_limit_cents=limit_cents,
+            )
+        budget.monthly_limit_cents = limit_cents
+        budget.alert_percent = max(1, min(100, alert_percent))
+        budget.is_active = True
+        db.add(budget)
+        db.commit()
+        _flash(request, "ok", f"Orçamento de {category.name} atualizado.")
+    except Exception as exc:
+        db.rollback()
+        _flash(request, "error", f"Não foi possível salvar o orçamento: {exc}")
+    return RedirectResponse("/app/prosperity#orcamento", status_code=303)
 
 
 @router.post("/app/prosperity/debts")
@@ -309,9 +424,7 @@ def create_debt(
         balance = _money(current_balance, allow_zero=False)
         minimum = _money(minimum_payment)
         apr_bps = int(
-            (Decimal(interest_apr.replace(",", ".") or "0") * 100).quantize(
-                Decimal(1)
-            )
+            (Decimal(interest_apr.replace(",", ".") or "0") * 100).quantize(Decimal(1))
         )
         if due_day is not None and not 1 <= due_day <= 31:
             raise ValueError("Dia de vencimento inválido.")

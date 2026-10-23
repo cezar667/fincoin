@@ -16,9 +16,10 @@ Transformar o FinSight de um registro de transacoes em um sistema de decisao fam
 1. Atualize o saldo inicial de cada conta.
 2. Cadastre as receitas e despesas recorrentes.
 3. Importe as faturas e categorize os itens.
-4. Cadastre todas as dividas com saldo, juros e parcela minima.
-5. Crie uma meta de reserva de emergencia.
-6. Registre ideias de renda e escolha uma proxima acao pequena.
+4. Defina limites mensais para as categorias mais importantes.
+5. Cadastre todas as dividas com saldo, juros e parcela minima.
+6. Crie uma meta de reserva de emergencia.
+7. Registre ideias de renda e escolha uma proxima acao pequena.
 
 ### Ritual semanal
 
@@ -39,6 +40,17 @@ O simulador mantem o orcamento mensal total destinado a dividas. Quando uma divi
 ## Deteccao de padroes
 
 O raio-X agrupa despesas por categoria e normaliza descricoes para detectar comerciantes presentes em dois ou mais meses. Na importacao, descricoes identicas reaproveitam o mapeamento de conta e categoria ja usado anteriormente.
+
+## Extrato do Radar Futuro
+
+Cada mes do Radar Futuro pode ser expandido para exibir todos os itens que formam as saidas projetadas:
+
+- lancamentos realizados;
+- despesas recorrentes;
+- parcelas de cartao;
+- pagamentos planejados de dividas.
+
+O total detalhado e validado contra a despesa agregada do forecast, e cada linha possui um atalho para a tela onde sua origem pode ser ajustada.
 
 ## Limitacoes conscientes
 

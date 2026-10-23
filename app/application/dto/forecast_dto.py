@@ -1,4 +1,5 @@
 from datetime import date
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -18,3 +19,14 @@ class ForecastDTO(BaseModel):
     initial_balance_cents: int
     lines: list[ForecastMonthDTO]
 
+
+class ForecastExpenseItemDTO(BaseModel):
+    month: date
+    source_id: UUID
+    source_type: str
+    source_label: str
+    description: str
+    category_name: str | None = None
+    detail: str | None = None
+    amount_cents: int
+    edit_url: str

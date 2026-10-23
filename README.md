@@ -10,8 +10,10 @@ Agora inclui as Fases 1 e 2 do modulo `Business Control`, com isolamento multi-b
 - Metas financeiras com progresso, aportes, prioridade e data alvo.
 - Laboratorio de novas rendas com potencial mensal, custo, horas e proxima acao.
 - Raio-X de categorias e deteccao de gastos provavelmente recorrentes.
+- Orcamento mensal por categoria com alertas de consumo e valor disponivel.
 - Importacoes futuras reaproveitam mapeamentos de descricoes ja categorizadas.
 - Dashboard redesenhado com margem mensal, dividas, metas e proximas acoes.
+- Radar Futuro explicavel, com extrato mensal de lancamentos, recorrencias, parcelas e dividas.
 
 ## Rodar local
 1. `pip install -e .[dev]`

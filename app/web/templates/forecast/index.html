@@ -1,43 +1,77 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Radar Futuro | FinSight{% endblock %}
 {% block content %}
-<section class="mb-3 rounded-2xl bg-white p-4 shadow-sm">
-  <h1 class="text-lg font-semibold">Radar Futuro</h1>
-  <p class="text-sm text-slate-500">Inicio: {{ forecast.from_month.strftime('%m/%Y') }} | Horizonte: {{ forecast.months }} meses</p>
-  <p class="text-sm text-slate-500">Saldo inicial considerado: {{ forecast.initial_balance_cents | brl }}</p>
-  <form method="get" action="/app/forecast" class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
-    <label class="block">
-      <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Inicio</span>
-      <input type="month" name="from" value="{{ selected_from_month.strftime('%Y-%m') }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-    </label>
-    <label class="block">
-      <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Horizonte</span>
-      <select name="months" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
-        {% for option in horizon_options %}
-        <option value="{{ option }}" {% if selected_horizon == option %}selected{% endif %}>{{ option }} meses</option>
-        {% endfor %}
-      </select>
-    </label>
-    <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white sm:self-end">Atualizar projecao</button>
-  </form>
+<section class="forecast-hero mb-6 overflow-hidden rounded-[30px] p-6 text-white lg:p-8">
+  <div class="flex flex-wrap items-start justify-between gap-6">
+    <div class="max-w-2xl">
+      <p class="text-xs font-bold uppercase tracking-[.22em] text-cyan-200">Previsibilidade financeira</p>
+      <h1 class="mt-2 text-3xl font-bold lg:text-4xl">Radar Futuro</h1>
+      <p class="mt-3 max-w-xl text-sm leading-6 text-slate-200">Veja o saldo projetado e abra qualquer mês para entender cada gasto, parcela, recorrência e pagamento de dívida que forma o resultado.</p>
+    </div>
+    <form method="get" action="/app/forecast" class="grid w-full gap-2 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur sm:w-auto sm:grid-cols-[1fr_1fr_auto]">
+      <label class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Início<input type="month" name="from" value="{{ selected_from_month.strftime('%Y-%m') }}" class="mt-1 block w-full rounded-xl border border-white/20 bg-white px-3 py-2 text-sm font-semibold text-slate-900" /></label>
+      <label class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Horizonte<select name="months" class="mt-1 block w-full rounded-xl border border-white/20 bg-white px-3 py-2 text-sm font-semibold text-slate-900">{% for option in horizon_options %}<option value="{{ option }}" {% if selected_horizon == option %}selected{% endif %}>{{ option }} meses</option>{% endfor %}</select></label>
+      <button class="rounded-xl bg-emerald-400 px-4 py-2 text-xs font-bold text-slate-950 sm:self-end">Atualizar</button>
+    </form>
+  </div>
 </section>
 
-<section class="space-y-2">
-  {% for line in forecast.lines %}
-  <article class="rounded-2xl bg-white p-4 shadow-sm">
-    <div class="mb-2 flex items-center justify-between">
-      <h2 class="text-sm font-semibold">{{ line.month.strftime('%m/%Y') }}</h2>
-      <span class="rounded-full px-2 py-1 text-xs font-semibold {% if line.traffic_light == 'GREEN' %}bg-emerald-100 text-emerald-700{% elif line.traffic_light == 'YELLOW' %}bg-amber-100 text-amber-700{% else %}bg-rose-100 text-rose-700{% endif %}">
-        {{ traffic_light_labels.get(line.traffic_light, line.traffic_light) }}
-      </span>
-    </div>
-    <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-      <div><p class="text-slate-500">Entradas</p><p class="font-semibold text-emerald-700">{{ line.income_cents | brl }}</p></div>
-      <div><p class="text-slate-500">Saidas</p><p class="font-semibold text-rose-700">{{ line.expense_cents | brl }}</p></div>
-      <div><p class="text-slate-500">Resultado</p><p class="font-semibold">{{ line.net_cents | brl }}</p></div>
-      <div><p class="text-slate-500">Acumulado</p><p class="font-semibold">{{ line.cumulative_cents | brl }}</p></div>
-    </div>
-  </article>
-  {% endfor %}
+<section class="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+  <article class="metric-card"><p class="metric-label">Saldo inicial</p><p class="metric-number">{{ forecast.initial_balance_cents|brl }}</p><p class="metric-help">Base informada nas suas contas</p></article>
+  <article class="metric-card"><p class="metric-label">Saldo ao final</p><p class="metric-number {% if forecast.lines and forecast.lines[-1].cumulative_cents >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ forecast.lines[-1].cumulative_cents|brl if forecast.lines else 'R$ 0,00' }}</p><p class="metric-help">Em {{ forecast.lines[-1].month.strftime('%m/%Y') if forecast.lines else '-' }}</p></article>
+  <article class="metric-card"><p class="metric-label">Despesas no horizonte</p><p class="metric-number text-rose-700">{{ total_expenses_cents|brl }}</p><p class="metric-help">{{ expense_item_count }} registros explicados abaixo</p></article>
+  <article class="metric-card"><p class="metric-label">Ponto mais sensível</p><p class="metric-number {% if lowest_line and lowest_line.cumulative_cents < 0 %}text-rose-700{% else %}text-slate-900{% endif %}">{{ lowest_line.cumulative_cents|brl if lowest_line else 'R$ 0,00' }}</p><p class="metric-help">{{ lowest_line.month.strftime('%m/%Y') if lowest_line else 'Sem projeção' }}</p></article>
 </section>
+
+<section class="mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:p-6">
+  <div class="flex flex-wrap items-center justify-between gap-2"><div><p class="eyebrow">Curva de segurança</p><h2 class="mt-1 text-xl font-bold">Evolução do saldo acumulado</h2></div><p class="text-xs text-slate-500">Verde: positivo · amarelo: atenção · vermelho: crítico</p></div>
+  <div class="mt-5 h-[260px]"><canvas id="forecastBalanceChart"></canvas></div>
+</section>
+
+<section>
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p class="eyebrow">Extrato projetado</p><h2 class="text-2xl font-bold">Todos os gastos, mês a mês</h2><p class="mt-1 text-sm text-slate-500">Abra um mês para ver o que compõe suas saídas. Os valores incluem lançamentos, recorrências, parcelas e dívidas.</p></div><a href="/app/transactions" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700">Ir para lançamentos</a></div>
+  <div class="space-y-3">
+    {% for line in forecast.lines %}
+    {% set items = expense_details.get(line.month, []) %}
+    <details class="forecast-month group overflow-hidden rounded-3xl border bg-white shadow-sm {% if line.traffic_light == 'RED' %}border-rose-200{% elif line.traffic_light == 'YELLOW' %}border-amber-200{% else %}border-slate-200{% endif %}" {% if loop.first %}open{% endif %}>
+      <summary class="cursor-pointer list-none p-4 lg:p-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-3"><span class="flex h-11 w-11 items-center justify-center rounded-2xl {% if line.traffic_light == 'GREEN' %}bg-emerald-50 text-emerald-700{% elif line.traffic_light == 'YELLOW' %}bg-amber-50 text-amber-700{% else %}bg-rose-50 text-rose-700{% endif %}"><svg class="h-5 w-5 transition group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span><div><h3 class="text-base font-bold capitalize">{{ line.month.strftime('%m/%Y') }}</h3><p class="text-xs text-slate-500">{{ items|length }} despesas previstas ou realizadas</p></div></div>
+          <div class="grid min-w-full grid-cols-2 gap-3 text-right sm:min-w-0 sm:grid-cols-4 sm:gap-6">
+            <div><p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Entradas</p><p class="mt-1 text-sm font-bold text-emerald-700">{{ line.income_cents|brl }}</p></div>
+            <div><p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Saídas</p><p class="mt-1 text-sm font-bold text-rose-700">{{ line.expense_cents|brl }}</p></div>
+            <div><p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Resultado</p><p class="mt-1 text-sm font-bold {% if line.net_cents >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ line.net_cents|brl }}</p></div>
+            <div><p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Acumulado</p><p class="mt-1 text-sm font-bold">{{ line.cumulative_cents|brl }}</p></div>
+          </div>
+        </div>
+      </summary>
+      <div class="border-t border-slate-100 bg-slate-50/70 p-3 lg:p-5">
+        {% if items %}
+        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div class="hidden grid-cols-[120px_minmax(220px,1fr)_minmax(130px,.55fr)_130px_52px] gap-3 border-b border-slate-100 bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 md:grid"><span>Origem</span><span>Descrição</span><span>Categoria</span><span class="text-right">Valor</span><span></span></div>
+          {% for item in items %}
+          <div class="grid gap-3 border-b border-slate-100 p-4 last:border-0 md:grid-cols-[120px_minmax(220px,1fr)_minmax(130px,.55fr)_130px_52px] md:items-center">
+            <div><span class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider {% if item.source_type == 'TRANSACTION' %}bg-slate-100 text-slate-700{% elif item.source_type == 'RECURRING' %}bg-sky-50 text-sky-700{% elif item.source_type == 'INSTALLMENT' %}bg-violet-50 text-violet-700{% else %}bg-rose-50 text-rose-700{% endif %}">{{ item.source_label }}</span></div>
+            <div><p class="text-sm font-bold text-slate-900">{{ item.description }}</p><p class="mt-0.5 text-xs text-slate-500">{{ item.detail or 'Sem detalhe adicional' }}</p></div>
+            <p class="text-xs font-semibold text-slate-600">{{ item.category_name or 'Sem categoria' }}</p>
+            <p class="text-left text-sm font-bold text-rose-700 md:text-right">{{ item.amount_cents|brl }}</p>
+            <a href="{{ item.edit_url }}" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:text-emerald-700" title="Ver ou ajustar"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></a>
+          </div>
+          {% endfor %}
+          <div class="flex items-center justify-between bg-slate-950 px-4 py-3 text-white"><span class="text-xs font-bold uppercase tracking-wider text-slate-300">Total de saídas do mês</span><span class="text-base font-bold">{{ line.expense_cents|brl }}</span></div>
+        </div>
+        {% else %}<div class="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-center"><p class="font-bold text-slate-700">Nenhuma despesa compõe este mês.</p><p class="mt-1 text-xs text-slate-500">Cadastre recorrências, parcelas ou lançamentos para tornar a projeção mais fiel.</p></div>{% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+</section>
+
+<script>
+  const labels = [{% for line in forecast.lines %}"{{ line.month.strftime('%m/%Y') }}"{% if not loop.last %},{% endif %}{% endfor %}];
+  const values = [{% for line in forecast.lines %}{{ line.cumulative_cents / 100 }}{% if not loop.last %},{% endif %}{% endfor %}];
+  const chart = document.getElementById('forecastBalanceChart');
+  const gradient = chart.getContext('2d').createLinearGradient(0,0,0,250); gradient.addColorStop(0,'rgba(14,165,233,.24)'); gradient.addColorStop(1,'rgba(14,165,233,0)');
+  new Chart(chart,{type:'line',data:{labels,datasets:[{data:values,borderColor:'#0284c7',backgroundColor:gradient,fill:true,tension:.36,borderWidth:3,pointRadius:4,pointBackgroundColor:values.map(v=>v<0?'#e11d48':'#0f766e')}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' R$ '+c.parsed.y.toLocaleString('pt-BR',{minimumFractionDigits:2})}}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(148,163,184,.16)'},ticks:{callback:v=>'R$ '+Number(v).toLocaleString('pt-BR')}}}}});
+</script>
 {% endblock %}

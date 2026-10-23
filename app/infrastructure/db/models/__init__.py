@@ -8,6 +8,7 @@ from app.infrastructure.db.models.business_integration import BusinessIntegratio
 from app.infrastructure.db.models.business_funding import BusinessFunding
 from app.infrastructure.db.models.business_funding_installment import BusinessFundingInstallment
 from app.infrastructure.db.models.category import Category
+from app.infrastructure.db.models.category_budget import CategoryBudget
 from app.infrastructure.db.models.credit_card import CreditCard
 from app.infrastructure.db.models.cost_center import CostCenter
 from app.infrastructure.db.models.debt import Debt
@@ -43,6 +44,7 @@ __all__ = [
     "BusinessFundingInstallment",
     "BusinessIntegration",
     "Category",
+    "CategoryBudget",
     "CreditCard",
     "CostCenter",
     "Debt",

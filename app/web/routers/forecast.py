@@ -12,8 +12,14 @@ from app.infrastructure.auth.csrf import get_or_create_csrf_token
 from app.infrastructure.auth.session import get_current_user_id
 from app.infrastructure.db.models.financial_plan import FinancialPlan
 from app.infrastructure.db.session import get_db
-from app.infrastructure.repositories.transaction_repo import SQLAlchemyForecastRepository
-from app.web.routers._utils import parse_year_month, plan_id_from_session, user_id_from_session
+from app.infrastructure.repositories.transaction_repo import (
+    SQLAlchemyForecastRepository,
+)
+from app.web.routers._utils import (
+    parse_year_month,
+    plan_id_from_session,
+    user_id_from_session,
+)
 
 router = APIRouter()
 
@@ -59,11 +65,25 @@ def forecast_page(
         return RedirectResponse("/app/plans", status_code=status.HTTP_303_SEE_OTHER)
     selected = parse_year_month(from_month, default=date.today())
     selected_horizon = _coerce_horizon(months)
-    forecast = BuildForecastUseCase(SQLAlchemyForecastRepository(db)).execute(
+    repository = SQLAlchemyForecastRepository(db)
+    forecast = BuildForecastUseCase(repository).execute(
         user_id=user_id,
         from_month=selected,
         months=selected_horizon,
         plan_id=active_plan.id,
+    )
+    expense_details = repository.build_expense_details(
+        user_id=user_id,
+        from_month=selected,
+        months=selected_horizon,
+        plan_id=active_plan.id,
+    )
+    total_expenses_cents = sum(line.expense_cents for line in forecast.lines)
+    expense_item_count = sum(len(items) for items in expense_details.values())
+    lowest_line = (
+        min(forecast.lines, key=lambda line: line.cumulative_cents)
+        if forecast.lines
+        else None
     )
     t = request.app.state.templates
     return t.TemplateResponse(
@@ -78,6 +98,10 @@ def forecast_page(
             "current_plan_name": active_plan.name,
             "active_page": "forecast",
             "csrf_token": get_or_create_csrf_token(request),
+            "expense_details": expense_details,
+            "total_expenses_cents": total_expenses_cents,
+            "expense_item_count": expense_item_count,
+            "lowest_line": lowest_line,
         },
     )
 
@@ -91,7 +115,10 @@ def forecast_api(
 ):
     selected = parse_year_month(from_month, default=date.today())
     if not _is_valid_horizon(months):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Horizonte invalido. Use 12 ou 24 meses.")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Horizonte invalido. Use 12 ou 24 meses.",
+        )
     selected_horizon = months
     return BuildForecastUseCase(SQLAlchemyForecastRepository(db)).execute(
         user_id=user_id,
