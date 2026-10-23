@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from app.infrastructure.auth.csrf import get_or_create_csrf_token, validate_csrf
 from app.infrastructure.auth.password import verify_password
-from app.infrastructure.db.models.financial_plan import FinancialPlan
 from app.infrastructure.db.models.user import User
 from app.infrastructure.db.session import get_db
 
@@ -51,14 +50,6 @@ def login_submit(
     request.session.clear()
     request.session["user_id"] = str(user.id)
     request.session["csrf_token"] = get_or_create_csrf_token(request)
-    plans = list(
-        db.scalars(
-            select(FinancialPlan).where(FinancialPlan.user_id == user.id).limit(2)
-        )
-    )
-    if len(plans) == 1:
-        request.session["active_plan_id"] = str(plans[0].id)
-        return RedirectResponse("/app/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     return RedirectResponse("/app/plans", status_code=status.HTTP_303_SEE_OTHER)
 
 

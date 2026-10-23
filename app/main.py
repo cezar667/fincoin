@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import inspect, text
@@ -74,13 +74,6 @@ def _ensure_dev_legacy_columns() -> None:
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="FinSight", version="0.1.0")
-    app.add_middleware(
-        SessionMiddleware,
-        secret_key=settings.secret_key,
-        same_site="lax",
-        https_only=settings.session_cookie_secure,
-        session_cookie="finsight_session",
-    )
     app.mount("/static", StaticFiles(directory="app/web/static"), name="static")
 
     templates = Jinja2Templates(directory="app/web/templates")
@@ -99,6 +92,28 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         response.headers["X-Request-Id"] = request_id
         return response
+
+    @app.middleware("http")
+    async def active_plan_middleware(request: Request, call_next):
+        path = request.url.path
+        is_private_app_path = path.startswith("/app/")
+        is_plan_selection_path = path.startswith("/app/plans")
+        if (
+            is_private_app_path
+            and not is_plan_selection_path
+            and request.session.get("user_id")
+            and not request.session.get("active_plan_id")
+        ):
+            return RedirectResponse("/app/plans", status_code=303)
+        return await call_next(request)
+
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.secret_key,
+        same_site="lax",
+        https_only=settings.session_cookie_secure,
+        session_cookie="finsight_session",
+    )
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
