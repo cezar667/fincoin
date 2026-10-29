@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "FinSight — Gestão Financeira",
+  "short_name": "FinSight",
+  "description": "Planeje, acompanhe e faça prosperar a vida financeira da sua família.",
+  "lang": "pt-BR",
+  "start_url": "/app/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#07182e",
+  "icons": [
+    {
+      "src": "/static/icons/finsight-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/finsight-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
