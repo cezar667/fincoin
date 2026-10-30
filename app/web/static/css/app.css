@@ -153,6 +153,23 @@ h4 {
   line-height: 1;
 }
 
+.network-status {
+  position: fixed;
+  z-index: 60;
+  right: 1rem;
+  bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  left: 1rem;
+  border: 1px solid #fcd34d;
+  border-radius: 0.9rem;
+  background: #fffbeb;
+  padding: 0.75rem 0.9rem;
+  box-shadow: 0 12px 28px rgba(120, 53, 15, 0.15);
+  color: #92400e;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 @media (max-width: 1023px) {
   .mobile-page-safe {
     padding-bottom: calc(6rem + env(safe-area-inset-bottom));
@@ -169,6 +186,15 @@ h4 {
   .sidebar-surface {
     padding-top: max(1.25rem, env(safe-area-inset-top));
     padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 1024px) {
+  .network-status {
+    right: 1.5rem;
+    bottom: 1.5rem;
+    left: auto;
+    max-width: 25rem;
   }
 }
 

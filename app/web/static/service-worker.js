@@ -1,7 +1,9 @@
-const CACHE_NAME = "finsight-shell-v1";
+const CACHE_NAME = "finsight-shell-v2";
 const APP_SHELL = [
   "/static/manifest.webmanifest",
   "/static/icons/finsight-icon.svg",
+  "/static/icons/finsight-icon-512.png",
+  "/static/icons/finsight-apple-touch-icon.png",
   "/static/offline.html",
   "/static/css/app.css"
 ];
