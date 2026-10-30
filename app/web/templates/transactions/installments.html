@@ -1,9 +1,9 @@
 ﻿{% extends "base.html" %}
 {% block title %}Parcelas e financiamentos | FinSight{% endblock %}
 {% block content %}
-<section class="mb-3 rounded-2xl bg-white p-4 shadow-sm">
-  <h1 class="text-lg font-semibold">Parcelas e financiamentos</h1>
-  <p class="text-sm text-slate-500">Planejamento: {{ current_plan_name }} | Compras no cartão e contratos de financiamento com projeção mensal.</p>
+<section class="mobile-page-heading mb-3 rounded-2xl bg-white p-4 shadow-sm">
+  <p class="eyebrow">Compromissos futuros</p><h1 class="mt-1 text-xl font-bold">Parcelas e financiamentos</h1>
+  <p class="mt-1 text-sm text-slate-500">Registre contratos e compras para que cada mês já nasça com seus compromissos visíveis.</p>
 </section>
 
 {% include "transactions/_submenu.html" %}
@@ -17,7 +17,7 @@
 <section class="mb-4 rounded-2xl bg-white p-4 shadow-sm" id="parcelamentos">
   <h2 class="mb-3 text-base font-semibold">Novo compromisso parcelado</h2>
   {% if expense_categories %}
-  <form method="post" action="/app/installments" class="grid grid-cols-1 gap-2 lg:grid-cols-2" data-installment-form>
+  <form method="post" action="/app/installments" class="mobile-form grid grid-cols-1 gap-3 lg:grid-cols-2" data-installment-form>
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
     <label class="text-xs font-semibold text-slate-600">Tipo
       <select name="kind" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-kind-select>
@@ -41,7 +41,7 @@
     <label class="hidden text-xs font-semibold text-slate-600" data-financing-field>Juros ao ano (%)<input type="text" name="interest_apr" placeholder="Ex.: 12,50" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" /></label>
     <label class="hidden text-xs font-semibold text-slate-600" data-financing-field>Dia do vencimento<input type="number" min="1" max="31" name="due_day" placeholder="Ex.: 10" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" /></label>
     <input type="number" min="1" name="total_parts" required placeholder="Numero de parcelas" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-    <input type="text" name="part_amount" required placeholder="Valor por parcela (ex: 49,90)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <input type="text" name="part_amount" required inputmode="decimal" placeholder="Valor por parcela (ex: 49,90)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
     <input type="month" name="first_competency_month" value="{{ selected_month.strftime('%Y-%m') }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
     <button type="submit" class="rounded-xl bg-amber-600 px-3 py-2 text-sm font-semibold text-white">Salvar compromisso</button>
   </form>

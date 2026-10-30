@@ -748,6 +748,57 @@ textarea {
   details > form {
     max-width: calc(100vw - 3rem);
   }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 767px) {
+  .import-review-row,
+  .import-review-row td {
+    display: block;
+  }
+
+  .import-review-row {
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    background: #fff;
+    padding: 0.35rem 0.7rem;
+  }
+
+  .import-review-row td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 0.7rem 0.1rem;
+    text-align: right;
+  }
+
+  .import-review-row td:last-child {
+    border-bottom: 0;
+  }
+
+  .import-review-row td::before {
+    content: attr(data-label);
+    flex: 0 0 5.7rem;
+    color: #64748b;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .import-review-row td form {
+    width: min(100%, 16rem);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

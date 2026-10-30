@@ -1,9 +1,9 @@
 ﻿{% extends "base.html" %}
 {% block title %}Cartoes | FinSight{% endblock %}
 {% block content %}
-<section class="mb-3 rounded-2xl bg-white p-4 shadow-sm">
-  <h1 class="text-lg font-semibold">Cartoes</h1>
-  <p class="text-sm text-slate-500">Planejamento: {{ current_plan_name }} | Controle de cartoes, fechamento e vencimento.</p>
+<section class="mobile-page-heading mb-3 rounded-2xl bg-white p-4 shadow-sm">
+  <p class="eyebrow">Compromissos</p><h1 class="mt-1 text-xl font-bold">Cartões</h1>
+  <p class="mt-1 text-sm text-slate-500">Deixe fechamento e vencimento claros para não perder o ciclo da fatura.</p>
 </section>
 
 {% include "transactions/_submenu.html" %}
@@ -16,7 +16,7 @@
 
 <section class="mb-4 rounded-2xl bg-white p-4 shadow-sm">
   <h2 class="mb-3 text-base font-semibold">Novo cartao</h2>
-  <form method="post" action="/app/credit-cards" class="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_140px_140px_auto]">
+  <form method="post" action="/app/credit-cards" class="mobile-form grid grid-cols-1 gap-3 lg:grid-cols-[1fr_140px_140px_auto]">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
     <input type="text" name="name" required placeholder="Nome do cartao" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
     <input type="number" min="1" max="31" name="closing_day" required placeholder="Fechamento" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />

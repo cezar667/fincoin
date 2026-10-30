@@ -72,14 +72,14 @@
       </thead>
       <tbody>
         {% for item in items %}
-        <tr class="border-b border-slate-100 align-top">
-          <td class="px-2 py-2">{{ item.normalized_date.strftime('%d/%m/%Y') }}</td>
-          <td class="px-2 py-2">{{ item.normalized_description }}</td>
-          <td class="px-2 py-2 {% if item.direction.value == 'EXPENSE' %}text-rose-700{% else %}text-emerald-700{% endif %}">
+        <tr class="import-review-row border-b border-slate-100 align-top">
+          <td data-label="Data" class="px-2 py-2">{{ item.normalized_date.strftime('%d/%m/%Y') }}</td>
+          <td data-label="Descrição" class="px-2 py-2">{{ item.normalized_description }}</td>
+          <td data-label="Valor" class="px-2 py-2 {% if item.direction.value == 'EXPENSE' %}text-rose-700{% else %}text-emerald-700{% endif %}">
             {{ item.amount_cents | brl }}
           </td>
-          <td class="px-2 py-2">{{ item.direction.value }}</td>
-          <td class="px-2 py-2">
+          <td data-label="Tipo" class="px-2 py-2">{{ item.direction.value }}</td>
+          <td data-label="Mapeamento" class="px-2 py-2">
             <form
               method="post"
               action="/api/import/items/{{ item.id }}/set-mapping"
@@ -105,7 +105,7 @@
               </button>
             </form>
           </td>
-          <td class="px-2 py-2 text-right">
+          <td data-label="Ação" class="px-2 py-2 text-right">
             <form
               method="post"
               action="/api/import/items/{{ item.id }}/reject"

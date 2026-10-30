@@ -1,9 +1,9 @@
 ﻿{% extends "base.html" %}
 {% block title %}Recorrencias | FinSight{% endblock %}
 {% block content %}
-<section class="mb-3 rounded-2xl bg-white p-4 shadow-sm">
-  <h1 class="text-lg font-semibold">Receitas e despesas recorrentes</h1>
-  <p class="text-sm text-slate-500">Planejamento: {{ current_plan_name }} | Entradas e saídas mensais identificadas como tipos diferentes.</p>
+<section class="mobile-page-heading mb-3 rounded-2xl bg-white p-4 shadow-sm">
+  <p class="eyebrow">Previsibilidade</p><h1 class="mt-1 text-xl font-bold">Receitas e despesas fixas</h1>
+  <p class="mt-1 text-sm text-slate-500">Registre o que se repete para o radar antecipar seus próximos meses.</p>
 </section>
 
 {% include "transactions/_submenu.html" %}
@@ -17,7 +17,7 @@
 <section class="mb-4 rounded-2xl bg-white p-4 shadow-sm" id="recorrencias">
   <h2 class="mb-3 text-base font-semibold">Nova receita ou despesa recorrente</h2>
   {% if accounts and categories %}
-  <form method="post" action="/app/recurring-rules" class="grid grid-cols-1 gap-2 lg:grid-cols-2" data-recurring-form>
+  <form method="post" action="/app/recurring-rules" class="mobile-form grid grid-cols-1 gap-3 lg:grid-cols-2" data-recurring-form>
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
     <input type="text" name="name" required placeholder="Nome da recorrencia" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm lg:col-span-2" />
     <select name="direction" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" data-direction-select>
@@ -25,7 +25,7 @@
       <option value="{{ item.value }}">{{ item.label }}</option>
       {% endfor %}
     </select>
-    <input type="text" name="amount" required placeholder="Valor (ex: 1500,00)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+    <input type="text" name="amount" required inputmode="decimal" placeholder="Valor (ex: 1500,00)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
     <select name="account_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
       {% for account in accounts %}
       <option value="{{ account.id }}">{{ account.name }}</option>

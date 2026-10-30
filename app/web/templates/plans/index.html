@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Planejamentos | FinSight{% endblock %}
 {% block content %}
-<section class="mb-3 rounded-2xl bg-white p-4 shadow-sm">
-  <h1 class="text-lg font-semibold">Planejamentos Financeiros</h1>
-  <p class="text-sm text-slate-500">Comece criando um planejamento e depois entre para gerenciar transacoes, forecast e rotina financeira.</p>
+<section class="mobile-page-heading mb-3 rounded-2xl bg-white p-4 shadow-sm">
+  <p class="eyebrow">Seu espaço financeiro</p><h1 class="mt-1 text-xl font-bold">Planejamentos</h1>
+  <p class="mt-1 text-sm text-slate-500">Abra o cenário certo para cuidar da rotina e dos objetivos da família.</p>
 </section>
 
 {% if flash %}
@@ -14,7 +14,7 @@
 
 <section class="mb-4 rounded-2xl bg-white p-4 shadow-sm">
   <h2 class="mb-3 text-base font-semibold">Novo planejamento</h2>
-  <form method="post" action="/app/plans" class="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_1fr_auto]">
+  <form method="post" action="/app/plans" class="mobile-form grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1fr_auto]">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
     <input type="text" name="name" required placeholder="Nome do planejamento" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
     <input type="text" name="description" placeholder="Descricao curta (opcional)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />

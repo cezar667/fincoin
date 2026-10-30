@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Importacao CSV | FinSight{% endblock %}
 {% block content %}
-<section class="mb-3 rounded-2xl bg-white p-4 shadow-sm">
-  <h1 class="text-lg font-semibold">Importacao de fatura/extrato CSV</h1>
-  <p class="text-sm text-slate-500">Upload para staging com deduplicacao e revisao antes de criar transacoes definitivas.</p>
+<section class="mobile-page-heading mb-3 rounded-2xl bg-white p-4 shadow-sm">
+  <p class="eyebrow">Importação assistida</p><h1 class="mt-1 text-xl font-bold">Fatura ou extrato CSV</h1>
+  <p class="mt-1 text-sm text-slate-500">Envie o arquivo, revise antes de confirmar e evite duplicidades.</p>
 </section>
 
 {% include "transactions/_submenu.html" %}
 
 <section class="rounded-2xl bg-white p-4 shadow-sm">
-  <form id="csv-import-form" class="grid grid-cols-1 gap-3 md:grid-cols-2" enctype="multipart/form-data">
+  <form id="csv-import-form" class="mobile-form grid grid-cols-1 gap-3 md:grid-cols-2" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
     <label class="block md:col-span-2">
       <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Arquivo CSV (max {{ max_file_size_mb }}MB)</span>
