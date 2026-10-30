@@ -660,3 +660,103 @@ summary:focus {
     grid-auto-columns: minmax(0, 1fr);
   }
 }
+
+/* Mobile-first interaction and density refinements. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  min-height: 2.75rem;
+}
+
+.mobile-subnav {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.1rem;
+  scrollbar-width: none;
+}
+
+.mobile-subnav::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-subnav-item {
+  flex: 0 0 auto;
+  min-height: 2.7rem;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-decoration: none;
+}
+
+.mobile-page-heading {
+  background: linear-gradient(135deg, #ffffff, #f0fdfa);
+}
+
+.mobile-form input,
+.mobile-form select,
+.mobile-form textarea,
+.field-input {
+  font-size: 16px;
+}
+
+@media (max-width: 1023px) {
+  .page-enter {
+    animation-duration: 180ms;
+  }
+
+  .month-focus-track {
+    grid-auto-columns: minmax(288px, calc(100vw - 2rem));
+  }
+
+  .month-focus-card {
+    min-height: 0;
+  }
+
+  .transaction-card > div:first-child {
+    width: 100%;
+  }
+
+  .transaction-card > div:last-child,
+  .transaction-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .transaction-actions > details,
+  .transaction-actions > form {
+    flex: 1 1 0;
+  }
+
+  .transaction-actions summary,
+  .transaction-actions button {
+    display: block;
+    width: 100%;
+    text-align: center;
+  }
+
+  details > form {
+    max-width: calc(100vw - 3rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
