@@ -24,7 +24,7 @@
     <link rel="apple-touch-icon" href="{{ url_for('static', path='icons/finsight-apple-touch-icon.png') }}" />
   </head>
   <body class="app-shell-body min-h-screen text-slate-900 antialiased">
-    {% if request.session.get("user_id") %}
+    {% if request.session.get("user_id") and request.url.path != "/login" %}
     {% set current_path = request.url.path %}
     {% set section_label = "Planejamentos" %}
     {% if active_page == "dashboard" %}
@@ -230,7 +230,7 @@
     {% endif %}
       {% block content %}{% endblock %}
     </main>
-    {% if request.session.get("user_id") %}
+    {% if request.session.get("user_id") and request.url.path != "/login" %}
       </div>
     </div>
 

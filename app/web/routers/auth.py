@@ -12,7 +12,18 @@ router = APIRouter()
 
 
 @router.get("/login")
-def login_page(request: Request):
+def login_page(request: Request, db: Session = Depends(get_db)):
+    raw_user_id = request.session.get("user_id")
+    if raw_user_id:
+        try:
+            user = db.get(User, UUID(raw_user_id))
+        except (TypeError, ValueError):
+            user = None
+        if user is not None and user.is_active:
+            return RedirectResponse(
+                "/app/dashboard", status_code=status.HTTP_303_SEE_OTHER
+            )
+        request.session.clear()
     t = request.app.state.templates
     return t.TemplateResponse(
         request=request,
@@ -58,3 +69,6 @@ def logout(request: Request, csrf_token: str = Form(...)):
     validate_csrf(request, csrf_token)
     request.session.clear()
     return RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
+
+
+from uuid import UUID
