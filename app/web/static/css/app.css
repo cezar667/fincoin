@@ -220,6 +220,16 @@ h4 {
   }
 }
 
+@media (display-mode: standalone) and (max-width: 1023px) {
+  .glass-topbar {
+    padding-top: max(4.25rem, calc(env(safe-area-inset-top) + 0.75rem));
+  }
+
+  .sidebar-surface {
+    padding-top: max(4.25rem, calc(env(safe-area-inset-top) + 1.25rem));
+  }
+}
+
 @media (min-width: 1024px) {
   .network-status {
     right: 1.5rem;
