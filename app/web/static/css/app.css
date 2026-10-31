@@ -117,6 +117,32 @@ h4 {
     radial-gradient(circle at top, rgba(56, 189, 248, 0.16), transparent 42%);
 }
 
+.nav-premium-icon {
+  display: inline-flex;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0.85rem;
+  background: linear-gradient(145deg, var(--nav-icon-start), var(--nav-icon-end));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 8px 18px var(--nav-icon-shadow);
+  color: var(--nav-icon-color);
+}
+.nav-premium-icon svg { width: 1.15rem; height: 1.15rem; }
+.group:hover .nav-premium-icon, summary:hover .nav-premium-icon { transform: translateY(-1px) scale(1.03); filter: brightness(1.08); }
+.nav-tone-teal { --nav-icon-start: rgba(45,212,191,.32); --nav-icon-end: rgba(13,148,136,.14); --nav-icon-color: #99f6e4; --nav-icon-shadow: rgba(13,148,136,.18); }
+.nav-tone-sky { --nav-icon-start: rgba(56,189,248,.32); --nav-icon-end: rgba(2,132,199,.14); --nav-icon-color: #bae6fd; --nav-icon-shadow: rgba(2,132,199,.18); }
+.nav-tone-amber { --nav-icon-start: rgba(251,191,36,.3); --nav-icon-end: rgba(217,119,6,.14); --nav-icon-color: #fde68a; --nav-icon-shadow: rgba(217,119,6,.16); }
+.nav-tone-violet { --nav-icon-start: rgba(167,139,250,.3); --nav-icon-end: rgba(109,40,217,.14); --nav-icon-color: #ddd6fe; --nav-icon-shadow: rgba(109,40,217,.18); }
+.nav-tone-rose { --nav-icon-start: rgba(251,113,133,.28); --nav-icon-end: rgba(225,29,72,.13); --nav-icon-color: #fecdd3; --nav-icon-shadow: rgba(225,29,72,.16); }
+.nav-tone-cyan { --nav-icon-start: rgba(34,211,238,.3); --nav-icon-end: rgba(8,145,178,.14); --nav-icon-color: #a5f3fc; --nav-icon-shadow: rgba(8,145,178,.18); }
+.nav-sub-link { display: flex; align-items: center; gap: .55rem; }
+.nav-sub-icon { display: inline-flex; width: 1.6rem; height: 1.6rem; flex: 0 0 auto; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.1); border-radius: .55rem; background: rgba(255,255,255,.07); color: #a5f3fc; }
+.nav-sub-icon svg { width: .82rem; height: .82rem; }
+.nav-sub-link:hover .nav-sub-icon { border-color: rgba(94,234,212,.25); background: rgba(45,212,191,.12); color: #ccfbf1; }
+
 .glass-topbar {
   backdrop-filter: blur(10px);
   background-color: rgba(248, 250, 252, 0.84);

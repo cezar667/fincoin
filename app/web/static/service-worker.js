@@ -1,4 +1,4 @@
-const CACHE_NAME = "finsight-shell-v8";
+const CACHE_NAME = "finsight-shell-v9";
 const APP_SHELL = [
   "/static/manifest.webmanifest",
   "/static/icons/finsight-icon.svg",
