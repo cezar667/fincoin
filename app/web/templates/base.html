@@ -50,7 +50,7 @@
       ></label>
 
       <aside
-        class="sidebar-surface fixed inset-y-0 left-0 z-40 flex w-[86%] max-w-[304px] -translate-x-full flex-col overflow-x-hidden overflow-y-auto border-r border-white/10 px-4 pb-4 pt-5 text-slate-100 transition-transform duration-300 peer-checked:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:rounded-r-[28px]"
+        class="sidebar-surface fixed inset-y-0 left-0 z-40 flex w-[86%] max-w-[304px] -translate-x-full flex-col overflow-x-hidden overflow-y-auto border-r border-white/10 px-4 pb-24 pt-5 text-slate-100 transition-transform duration-300 peer-checked:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:rounded-r-[28px] lg:pb-4"
       >
         <a href="/app/dashboard" class="soft-card rounded-2xl border border-white/10 bg-white/[0.08] p-4 transition hover:bg-white/[0.12]">
           <div class="flex items-center gap-3">
@@ -234,7 +234,7 @@
       </div>
     </div>
 
-    <nav class="mobile-tabbar lg:hidden" aria-label="Navegação principal">
+    <nav class="mobile-tabbar peer-checked:hidden lg:hidden" aria-label="Navegação principal">
       <a href="/app/dashboard" class="mobile-tab {% if active_page == 'dashboard' %}mobile-tab-active{% endif %}" aria-label="Painel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 3v4h8V3zM3 21v-4h8v4z" /></svg><span>Painel</span>
       </a>
