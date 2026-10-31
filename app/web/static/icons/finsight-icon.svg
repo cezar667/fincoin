@@ -12,7 +12,7 @@
   </defs>
   <rect width="512" height="512" rx="120" fill="url(#background)"/>
   <circle cx="390" cy="108" r="98" fill="#67e8f9" opacity=".13"/>
-  <circle cx="115" cy="425" r="132" fill="#fef08a" opacity=".1"/>
+  <circle cx="115" cy="425" r="132" fill="#5eead4" opacity=".12"/>
   <path d="M148 361V152h181v57H218v38h96v55h-96v59z" fill="url(#mark)"/>
-  <path d="M348 166v181M303 302l45 45 45-45" fill="none" stroke="#fef08a" stroke-linecap="round" stroke-linejoin="round" stroke-width="28"/>
+  <path d="M348 347V166M303 211l45-45 45 45" fill="none" stroke="#a7f3d0" stroke-linecap="round" stroke-linejoin="round" stroke-width="28"/>
 </svg>

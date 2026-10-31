@@ -211,11 +211,11 @@ h4 {
   }
 
   .glass-topbar {
-    padding-top: max(0.75rem, env(safe-area-inset-top));
+    padding-top: max(3.5rem, calc(env(safe-area-inset-top) + 0.75rem));
   }
 
   .sidebar-surface {
-    padding-top: max(1.25rem, env(safe-area-inset-top));
+    padding-top: max(3.5rem, calc(env(safe-area-inset-top) + 1.25rem));
     padding-bottom: calc(1rem + env(safe-area-inset-bottom));
   }
 }
