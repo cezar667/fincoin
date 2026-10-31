@@ -40,8 +40,8 @@ def _foreign_key_values(
     connection: Connection,
     table: Table,
     cache: dict[tuple[str, tuple[str, ...]], set[tuple[str, ...]]],
-) -> list[tuple[tuple[str, ...], set[tuple[str, ...]]]]:
-    result: list[tuple[tuple[str, ...], set[tuple[str, ...]]]] = []
+) -> list[tuple[tuple[str, ...], set[tuple[str, ...]], str]]:
+    result: list[tuple[tuple[str, ...], set[tuple[str, ...]], str]] = []
     for constraint in table.foreign_key_constraints:
         local_columns = tuple(element.parent.name for element in constraint.elements)
         parent_table = constraint.referred_table
@@ -52,8 +52,14 @@ def _foreign_key_values(
                 select(*(parent_table.c[column] for column in parent_columns))
             ).all()
             cache[cache_key] = {_normalized_key(tuple(row)) for row in rows}
-        result.append((local_columns, cache[cache_key]))
+        result.append((local_columns, cache[cache_key], parent_table.name))
     return result
+
+
+def _clear_target(connection: Connection) -> None:
+    """Delete only FinSight tables, from children to parents, in one transaction."""
+    for table in reversed(Base.metadata.sorted_tables):
+        connection.execute(table.delete())
 
 
 def main() -> None:
@@ -64,6 +70,14 @@ def main() -> None:
         "--source-url",
         required=True,
         help="URL SQLAlchemy do SQLite de origem, por exemplo sqlite+pysqlite:////transfer/finsight.db",
+    )
+    parser.add_argument(
+        "--replace-existing",
+        action="store_true",
+        help=(
+            "Remove os dados atuais das tabelas do FinSight antes da transferência. "
+            "Use somente para refazer uma importação incompleta."
+        ),
     )
     args = parser.parse_args()
     if not args.source_url.startswith("sqlite"):
@@ -90,9 +104,14 @@ def main() -> None:
     try:
         with target_engine.begin() as target_connection:
             if _target_has_data(target_connection):
-                parser.error(
-                    "O PostgreSQL de destino já tem dados. "
-                    "A transferência foi interrompida para não misturar informações."
+                if not args.replace_existing:
+                    parser.error(
+                        "O PostgreSQL de destino já tem dados. "
+                        "A transferência foi interrompida para não misturar informações."
+                    )
+                _clear_target(target_connection)
+                print(
+                    "Dados anteriores do FinSight removidos para refazer a transferência."
                 )
             foreign_key_cache: dict[
                 tuple[str, tuple[str, ...]], set[tuple[str, ...]]
@@ -113,22 +132,37 @@ def main() -> None:
                     )
                     row_count = 0
                     skipped_count = 0
+                    remapped_user_count = 0
 
                     def valid_rows(
                         rows_result=result,
                         rows_parent_keys=parent_keys,
                     ) -> Iterator[dict[str, object]]:
-                        nonlocal skipped_count
+                        nonlocal remapped_user_count, skipped_count
                         for source_row in rows_result.mappings():
                             row = dict(source_row)
                             valid = True
-                            for local_columns, valid_parent_keys in rows_parent_keys:
+                            for (
+                                local_columns,
+                                valid_parent_keys,
+                                parent_table_name,
+                            ) in rows_parent_keys:
                                 values = tuple(
                                     row.get(column) for column in local_columns
                                 )
                                 if any(value is None for value in values):
                                     continue
                                 if _normalized_key(values) not in valid_parent_keys:
+                                    if (
+                                        parent_table_name == "users"
+                                        and len(valid_parent_keys) == 1
+                                        and len(local_columns) == 1
+                                    ):
+                                        row[local_columns[0]] = next(
+                                            iter(valid_parent_keys)
+                                        )[0]
+                                        remapped_user_count += 1
+                                        continue
                                     valid = False
                                     break
                             if valid:
@@ -143,6 +177,10 @@ def main() -> None:
                 message = f"{target_table.name}: {row_count} registros transferidos"
                 if skipped_count:
                     message += f"; {skipped_count} ignorados por referência inexistente"
+                if remapped_user_count:
+                    message += (
+                        f"; {remapped_user_count} associados ao usuário recuperado"
+                    )
                 print(message)
     finally:
         source_engine.dispose()
