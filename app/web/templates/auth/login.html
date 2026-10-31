@@ -1,17 +1,29 @@
 {% extends "base.html" %}
-{% block title %}Entrar | FinSight{% endblock %}
+{% block title %}Acessar | FinSight{% endblock %}
 {% block content %}
-<section class="mx-auto mt-8 max-w-md rounded-2xl bg-white p-6 shadow-sm">
-  <h1 class="mb-4 text-2xl font-semibold">Entrar</h1>
-  {% if error %}
-  <div class="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ error }}</div>
-  {% endif %}
-  <form method="post" action="/login" class="space-y-3">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-    <input type="email" name="email" required placeholder="E-mail" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-    <input type="password" name="password" required placeholder="Senha" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-    <button type="submit" class="w-full rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Entrar</button>
-  </form>
+<section class="auth-shell relative isolate -mx-4 -my-8 flex min-h-[100dvh] items-center overflow-hidden px-4 py-8 sm:rounded-[2rem] sm:px-8">
+  <div class="auth-orb auth-orb-one" aria-hidden="true"></div><div class="auth-orb auth-orb-two" aria-hidden="true"></div><div class="auth-grid" aria-hidden="true"></div>
+  <div class="relative mx-auto grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/15 bg-white/10 shadow-2xl shadow-slate-950/25 backdrop-blur-xl lg:grid-cols-[1.05fr_0.95fr]">
+    <div class="hidden min-h-[610px] flex-col justify-between bg-slate-950/20 p-10 text-white lg:flex">
+      <div>
+        <div class="flex items-center gap-3"><span class="auth-brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" class="h-7 w-7"><path d="M10 33.5 19 24l6 6 13-15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/><path d="M31 15h7v7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/></svg></span><div><p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-100/70">FinSight</p><p class="mt-0.5 text-sm font-medium text-white/90">Seu comando financeiro</p></div></div>
+        <div class="mt-20 max-w-sm"><p class="text-sm font-bold uppercase tracking-[0.2em] text-emerald-200">Clareza para decidir</p><h1 class="mt-5 font-display text-4xl font-bold leading-tight tracking-tight">Dinheiro sob controle. Futuro em movimento.</h1><p class="mt-5 text-base leading-7 text-slate-200/90">Centralize as escolhas da sua família, acompanhe o mês e construa os próximos passos com tranquilidade.</p></div>
+      </div>
+      <div class="grid grid-cols-3 gap-3"><div class="auth-benefit-card"><strong>Hoje</strong><span>visão do mês</span></div><div class="auth-benefit-card"><strong>6 meses</strong><span>radar futuro</span></div><div class="auth-benefit-card"><strong>1 lugar</strong><span>sua vida financeira</span></div></div>
+    </div>
+    <div class="auth-form-panel px-5 py-7 sm:px-10 sm:py-10"><div class="mx-auto w-full max-w-sm">
+      <div class="flex items-center justify-between lg:hidden"><div class="flex items-center gap-2.5 text-white"><span class="auth-brand-mark auth-brand-mark-small" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" class="h-5 w-5"><path d="M10 33.5 19 24l6 6 13-15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/><path d="M31 15h7v7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/></svg></span><span class="text-sm font-bold tracking-wide">FinSight</span></div><span class="rounded-full border border-emerald-200/25 bg-emerald-300/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-100">Área segura</span></div>
+      <div class="mt-12 lg:mt-16"><p class="text-xs font-bold uppercase tracking-[0.2em] text-emerald-200">Boas-vindas</p><h2 class="mt-3 font-display text-3xl font-bold tracking-tight text-white">Entre no seu espaço</h2><p class="mt-3 text-sm leading-6 text-slate-300">Acompanhe o que importa para suas finanças e seus próximos objetivos.</p></div>
+      {% if error %}<div class="mt-6 flex gap-3 rounded-2xl border border-rose-200/25 bg-rose-400/10 px-4 py-3 text-sm leading-5 text-rose-50" role="alert"><svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v4m0 4h.01M10.3 3.8 2.8 17a2 2 0 0 0 1.74 3h14.92A2 2 0 0 0 21.2 17L13.7 3.8a2 2 0 0 0-3.48 0Z"/></svg><span>{{ error }}</span></div>{% endif %}
+      <form method="post" action="/login" class="mt-7 space-y-5"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
+        <label class="block"><span class="auth-label">E-mail</span><span class="auth-input-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><input type="email" name="email" required autocomplete="email" inputmode="email" placeholder="voce@exemplo.com" class="auth-input" autofocus/></span></label>
+        <label class="block"><span class="auth-label">Senha</span><span class="auth-input-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="login-password" type="password" name="password" required autocomplete="current-password" placeholder="Sua senha" class="auth-input pr-12"/><button type="button" class="auth-password-toggle" data-password-toggle aria-controls="login-password" aria-label="Mostrar senha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></span></label>
+        <button type="submit" class="auth-submit"><span>Entrar no FinSight</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+      </form>
+      <div class="mt-7 flex items-center justify-center gap-2 text-xs text-slate-300/75"><svg class="h-3.5 w-3.5 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Seus dados ficam protegidos.</span></div>
+    </div></div>
+  </div>
 </section>
+<script>document.querySelector('[data-password-toggle]')?.addEventListener('click',(event)=>{const button=event.currentTarget;const input=document.getElementById(button.getAttribute('aria-controls'));const visible=input.type==='text';input.type=visible?'password':'text';button.setAttribute('aria-label',visible?'Mostrar senha':'Ocultar senha');});</script>
 {% endblock %}
 
