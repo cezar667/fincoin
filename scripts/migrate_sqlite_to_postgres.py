@@ -3,7 +3,7 @@
 import argparse
 from collections.abc import Iterator
 
-from sqlalchemy import MetaData, create_engine, func, select
+from sqlalchemy import MetaData, Table, create_engine, func, select
 from sqlalchemy.engine import Connection, Engine
 
 from app.infrastructure.db import models as _models  # noqa: F401
@@ -29,6 +29,31 @@ def _target_has_data(connection: Connection) -> bool:
         if connection.scalar(select(func.count()).select_from(table)):
             return True
     return False
+
+
+def _normalized_key(values: tuple[object, ...]) -> tuple[str, ...]:
+    """Compare SQLite and PostgreSQL identifiers consistently (UUIDs differ in type)."""
+    return tuple(str(value) for value in values)
+
+
+def _foreign_key_values(
+    connection: Connection,
+    table: Table,
+    cache: dict[tuple[str, tuple[str, ...]], set[tuple[str, ...]]],
+) -> list[tuple[tuple[str, ...], set[tuple[str, ...]]]]:
+    result: list[tuple[tuple[str, ...], set[tuple[str, ...]]]] = []
+    for constraint in table.foreign_key_constraints:
+        local_columns = tuple(element.parent.name for element in constraint.elements)
+        parent_table = constraint.referred_table
+        parent_columns = tuple(element.column.name for element in constraint.elements)
+        cache_key = (parent_table.name, parent_columns)
+        if cache_key not in cache:
+            rows = connection.execute(
+                select(*(parent_table.c[column] for column in parent_columns))
+            ).all()
+            cache[cache_key] = {_normalized_key(tuple(row)) for row in rows}
+        result.append((local_columns, cache[cache_key]))
+    return result
 
 
 def main() -> None:
@@ -69,6 +94,9 @@ def main() -> None:
                     "O PostgreSQL de destino já tem dados. "
                     "A transferência foi interrompida para não misturar informações."
                 )
+            foreign_key_cache: dict[
+                tuple[str, tuple[str, ...]], set[tuple[str, ...]]
+            ] = {}
             for target_table in Base.metadata.sorted_tables:
                 source_table = source_metadata.tables[target_table.name]
                 column_names = [
@@ -80,12 +108,42 @@ def main() -> None:
                     result = source_connection.execute(
                         select(*(source_table.c[name] for name in column_names))
                     )
+                    parent_keys = _foreign_key_values(
+                        target_connection, target_table, foreign_key_cache
+                    )
                     row_count = 0
-                    rows = (dict(row) for row in result.mappings())
+                    skipped_count = 0
+
+                    def valid_rows(
+                        rows_result=result,
+                        rows_parent_keys=parent_keys,
+                    ) -> Iterator[dict[str, object]]:
+                        nonlocal skipped_count
+                        for source_row in rows_result.mappings():
+                            row = dict(source_row)
+                            valid = True
+                            for local_columns, valid_parent_keys in rows_parent_keys:
+                                values = tuple(
+                                    row.get(column) for column in local_columns
+                                )
+                                if any(value is None for value in values):
+                                    continue
+                                if _normalized_key(values) not in valid_parent_keys:
+                                    valid = False
+                                    break
+                            if valid:
+                                yield row
+                            else:
+                                skipped_count += 1
+
+                    rows = valid_rows()
                     for batch in _batches(rows):
                         target_connection.execute(target_table.insert(), batch)
                         row_count += len(batch)
-                print(f"{target_table.name}: {row_count} registros transferidos")
+                message = f"{target_table.name}: {row_count} registros transferidos"
+                if skipped_count:
+                    message += f"; {skipped_count} ignorados por referência inexistente"
+                print(message)
     finally:
         source_engine.dispose()
         target_engine.dispose()
