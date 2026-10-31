@@ -203,7 +203,10 @@ h4 {
 
 @media (max-width: 1023px) {
   .mobile-app-frame {
-    height: 100dvh;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: auto;
     min-height: 0;
     overflow: hidden;
   }
