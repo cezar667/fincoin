@@ -1,6 +1,7 @@
 """One-time, guarded transfer of a FinSight SQLite database to PostgreSQL."""
 
 import argparse
+import uuid
 from collections.abc import Iterator
 
 from sqlalchemy import MetaData, Table, create_engine, func, select
@@ -33,7 +34,13 @@ def _target_has_data(connection: Connection) -> bool:
 
 def _normalized_key(values: tuple[object, ...]) -> tuple[str, ...]:
     """Compare SQLite and PostgreSQL identifiers consistently (UUIDs differ in type)."""
-    return tuple(str(value) for value in values)
+    normalized: list[str] = []
+    for value in values:
+        try:
+            normalized.append(str(uuid.UUID(str(value))))
+        except (AttributeError, TypeError, ValueError):
+            normalized.append(str(value))
+    return tuple(normalized)
 
 
 def _foreign_key_values(
