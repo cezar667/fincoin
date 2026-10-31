@@ -7,13 +7,16 @@ Create Date: 2026-10-23
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision = "20261023_0011"
 down_revision = "20261022_0010"
 branch_labels = None
 depends_on = None
 
-installment_kind = sa.Enum("PURCHASE", "FINANCING", name="installment_kind")
+installment_kind = postgresql.ENUM(
+    "PURCHASE", "FINANCING", name="installment_kind", create_type=False
+)
 
 
 def upgrade() -> None:

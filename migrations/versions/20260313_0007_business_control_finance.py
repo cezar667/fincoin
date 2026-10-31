@@ -5,9 +5,9 @@ Revises: 20260313_0006
 Create Date: 2026-03-13 20:10:00
 """
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision = "20260313_0007"
 down_revision = "20260313_0006"
@@ -15,19 +15,23 @@ branch_labels = None
 depends_on = None
 
 
-business_cash_activity_type = sa.Enum(
+business_cash_activity_type = postgresql.ENUM(
     "OPERATING",
     "INVESTING",
     "FINANCING",
     name="business_cash_activity_type",
+    create_type=False,
 )
-funding_installment_status = sa.Enum(
+funding_installment_status = postgresql.ENUM(
     "OPEN",
     "PAID",
     "OVERDUE",
     name="funding_installment_status",
+    create_type=False,
 )
-transaction_direction = sa.Enum("INCOME", "EXPENSE", name="transaction_direction")
+transaction_direction = postgresql.ENUM(
+    "INCOME", "EXPENSE", name="transaction_direction", create_type=False
+)
 
 
 def upgrade() -> None:
@@ -43,7 +47,12 @@ def upgrade() -> None:
         op.create_table(
             "business_fundings",
             sa.Column("id", sa.Uuid(), nullable=False),
-            sa.Column("business_id", sa.Uuid(), sa.ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False),
+            sa.Column(
+                "business_id",
+                sa.Uuid(),
+                sa.ForeignKey("businesses.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
             sa.Column(
                 "disbursement_account_id",
                 sa.Uuid(),
@@ -77,18 +86,41 @@ def upgrade() -> None:
             sa.Column("disbursed_on", sa.Date(), nullable=False),
             sa.Column("first_due_on", sa.Date(), nullable=False),
             sa.Column("notes", sa.String(length=500), nullable=True),
-            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
             sa.PrimaryKeyConstraint("id"),
         )
-        op.create_index("ix_business_fundings_business_disbursed", "business_fundings", ["business_id", "disbursed_on"])
-        op.create_index("ix_business_fundings_business_first_due", "business_fundings", ["business_id", "first_due_on"])
+        op.create_index(
+            "ix_business_fundings_business_disbursed",
+            "business_fundings",
+            ["business_id", "disbursed_on"],
+        )
+        op.create_index(
+            "ix_business_fundings_business_first_due",
+            "business_fundings",
+            ["business_id", "first_due_on"],
+        )
 
     if "business_cash_entries" not in existing_tables:
         op.create_table(
             "business_cash_entries",
             sa.Column("id", sa.Uuid(), nullable=False),
-            sa.Column("business_id", sa.Uuid(), sa.ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False),
+            sa.Column(
+                "business_id",
+                sa.Uuid(),
+                sa.ForeignKey("businesses.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
             sa.Column(
                 "business_account_id",
                 sa.Uuid(),
@@ -119,11 +151,25 @@ def upgrade() -> None:
             sa.Column("amount_cents", sa.BigInteger(), nullable=False),
             sa.Column("occurred_on", sa.Date(), nullable=False),
             sa.Column("notes", sa.String(length=500), nullable=True),
-            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
             sa.PrimaryKeyConstraint("id"),
         )
-        op.create_index("ix_business_cash_entries_business_date", "business_cash_entries", ["business_id", "occurred_on"])
+        op.create_index(
+            "ix_business_cash_entries_business_date",
+            "business_cash_entries",
+            ["business_id", "occurred_on"],
+        )
         op.create_index(
             "ix_business_cash_entries_account_date",
             "business_cash_entries",
@@ -145,7 +191,12 @@ def upgrade() -> None:
                 sa.ForeignKey("business_fundings.id", ondelete="CASCADE"),
                 nullable=False,
             ),
-            sa.Column("business_id", sa.Uuid(), sa.ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False),
+            sa.Column(
+                "business_id",
+                sa.Uuid(),
+                sa.ForeignKey("businesses.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
             sa.Column(
                 "payment_entry_id",
                 sa.Uuid(),
@@ -155,14 +206,36 @@ def upgrade() -> None:
             sa.Column("installment_number", sa.Integer(), nullable=False),
             sa.Column("due_on", sa.Date(), nullable=False),
             sa.Column("amount_due_cents", sa.BigInteger(), nullable=False),
-            sa.Column("amount_paid_cents", sa.BigInteger(), nullable=False, server_default=sa.text("0")),
+            sa.Column(
+                "amount_paid_cents",
+                sa.BigInteger(),
+                nullable=False,
+                server_default=sa.text("0"),
+            ),
             sa.Column("paid_on", sa.Date(), nullable=True),
             sa.Column("status", funding_installment_status, nullable=False),
-            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint("funding_id", "installment_number", name="uq_business_funding_installments_number"),
-            sa.UniqueConstraint("payment_entry_id", name="uq_business_funding_installments_payment_entry"),
+            sa.UniqueConstraint(
+                "funding_id",
+                "installment_number",
+                name="uq_business_funding_installments_number",
+            ),
+            sa.UniqueConstraint(
+                "payment_entry_id",
+                name="uq_business_funding_installments_payment_entry",
+            ),
         )
         op.create_index(
             "ix_business_funding_installments_business_due",
@@ -182,19 +255,36 @@ def downgrade() -> None:
     existing_tables = set(inspector.get_table_names())
 
     if "business_funding_installments" in existing_tables:
-        op.drop_index("ix_business_funding_installments_business_status", table_name="business_funding_installments")
-        op.drop_index("ix_business_funding_installments_business_due", table_name="business_funding_installments")
+        op.drop_index(
+            "ix_business_funding_installments_business_status",
+            table_name="business_funding_installments",
+        )
+        op.drop_index(
+            "ix_business_funding_installments_business_due",
+            table_name="business_funding_installments",
+        )
         op.drop_table("business_funding_installments")
 
     if "business_cash_entries" in existing_tables:
-        op.drop_index("ix_business_cash_entries_business_direction", table_name="business_cash_entries")
-        op.drop_index("ix_business_cash_entries_account_date", table_name="business_cash_entries")
-        op.drop_index("ix_business_cash_entries_business_date", table_name="business_cash_entries")
+        op.drop_index(
+            "ix_business_cash_entries_business_direction",
+            table_name="business_cash_entries",
+        )
+        op.drop_index(
+            "ix_business_cash_entries_account_date", table_name="business_cash_entries"
+        )
+        op.drop_index(
+            "ix_business_cash_entries_business_date", table_name="business_cash_entries"
+        )
         op.drop_table("business_cash_entries")
 
     if "business_fundings" in existing_tables:
-        op.drop_index("ix_business_fundings_business_first_due", table_name="business_fundings")
-        op.drop_index("ix_business_fundings_business_disbursed", table_name="business_fundings")
+        op.drop_index(
+            "ix_business_fundings_business_first_due", table_name="business_fundings"
+        )
+        op.drop_index(
+            "ix_business_fundings_business_disbursed", table_name="business_fundings"
+        )
         op.drop_table("business_fundings")
 
     funding_installment_status.drop(bind, checkfirst=True)
