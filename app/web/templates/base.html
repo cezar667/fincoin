@@ -42,7 +42,7 @@
     {% set primary_action_href = primary_action_href | default('/app/transactions#novo-lancamento') %}
     {% set primary_action_label = primary_action_label | default('+ Novo') %}
 
-    <div class="min-h-screen lg:grid lg:grid-cols-[304px_minmax(0,1fr)]">
+    <div class="mobile-app-frame min-h-screen lg:grid lg:grid-cols-[304px_minmax(0,1fr)]">
       <input id="sidebar-toggle" type="checkbox" class="peer sr-only" aria-label="Abrir menu de navegação" />
       <label
         for="sidebar-toggle"
@@ -201,7 +201,7 @@
         </form>
       </aside>
 
-      <div class="flex min-h-screen flex-col">
+      <div class="mobile-app-content flex min-h-screen flex-col">
         <header class="glass-topbar sticky top-0 z-20 border-b border-slate-200/70 px-4 py-3 lg:px-8">
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-2">
@@ -231,10 +231,7 @@
       {% block content %}{% endblock %}
     </main>
     {% if request.session.get("user_id") and request.url.path != "/login" %}
-      </div>
-    </div>
-
-    <nav class="mobile-tabbar peer-checked:hidden lg:hidden" aria-label="Navegação principal">
+    <nav class="mobile-tabbar lg:hidden" aria-label="Navegação principal">
       <a href="/app/dashboard" class="mobile-tab {% if active_page == 'dashboard' %}mobile-tab-active{% endif %}" aria-label="Painel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 3v4h8V3zM3 21v-4h8v4z" /></svg><span>Painel</span>
       </a>
@@ -251,6 +248,8 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h10" /></svg><span>Menu</span>
       </label>
     </nav>
+      </div>
+    </div>
 
     <div id="network-status" class="network-status" role="status" aria-live="polite" hidden>Você está sem conexão. As telas salvas continuam disponíveis.</div>
 

@@ -9,7 +9,6 @@
   --ring-soft: rgba(15, 118, 110, 0.28);
   --shadow-soft: 0 18px 42px rgba(15, 23, 42, 0.12);
   --radius-xl: 1rem;
-  --mobile-tabbar-clearance: calc(7.75rem + env(safe-area-inset-bottom));
 }
 
 html,
@@ -203,9 +202,32 @@ h4 {
 }
 
 @media (max-width: 1023px) {
+  .mobile-app-frame {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .mobile-app-content {
+    height: 100%;
+    min-height: 0;
+  }
+
   .mobile-page-safe {
-    padding-bottom: var(--mobile-tabbar-clearance);
-    scroll-padding-bottom: var(--mobile-tabbar-clearance);
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 1.25rem;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .mobile-tabbar {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  #sidebar-toggle:checked ~ .mobile-app-content .mobile-tabbar {
+    display: none;
   }
 
   .quick-create {
